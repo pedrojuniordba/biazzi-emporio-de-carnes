@@ -1,0 +1,29 @@
+services:
+  - type: web
+    name: biazzi-emporio
+    env: node
+    region: oregon
+    plan: free
+    buildCommand: npm install
+    startCommand: node server.js
+    healthCheckPath: /api/orders
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 3000
+      - key: DATA_DIR
+        value: /data
+      - key: TZ
+        value: America/Sao_Paulo
+      - key: WHATSAPP_PHONE
+        sync: false   # preencher manualmente no painel do Render
+      - key: CALLMEBOT_APIKEY
+        sync: false   # preencher manualmente no painel do Render
+      - key: ALLOWED_ORIGIN
+        value: "*"
+
+disks:
+  - name: biazzi-data
+    mountPath: /data
+    sizeGB: 1

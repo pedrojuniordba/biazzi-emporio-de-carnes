@@ -1,0 +1,22 @@
+# Dependencies
+node_modules/
+
+# Database (não versionar o banco de produção)
+*.db
+*.db-shm
+*.db-wal
+
+# Environment variables (nunca versionar!)
+.env
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/
+.idea/
