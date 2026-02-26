@@ -1,140 +1,169 @@
-<!-- SOMENTE O SCRIPT FOI ALTERADO — HTML/CSS continuam iguais -->
-
 <script>
 const API = '/api';
 
-  // SAFE NUMBER HELPERS
+
+/* =====================================================
+   SAFE NUMBER HELPERS  (NUNCA MAIS toFixed crash)
+===================================================== */
+
 function toNumber(v){
   const n = Number(v);
   return Number.isFinite(n) ? n : 0;
 }
+
 function fixed(v,d=2){
   return toNumber(v).toFixed(d);
 }
+
 function fmt(v){
   return 'R$ ' + fixed(v,2).replace('.',',');
 }
 
 
-// ─────────────────────────────────────────────
-// SAFE NUMBER HELPERS (ANTI toFixed CRASH)
-// ─────────────────────────────────────────────
-function toNumber(v){
-  const n = Number(v);
-  return Number.isFinite(n) ? n : 0;
-}
+/* =====================================================
+   API
+===================================================== */
 
-function fixed(v, d=2){
-  return toNumber(v).toFixed(d);
-}
+async function api(path, method='GET', body=null){
+  const opts = {
+    method,
+    headers:{'Content-Type':'application/json'}
+  };
 
-function money(v){
-  return 'R$ ' + fixed(v,2).replace('.',',');
-}
+  if(body) opts.body = JSON.stringify(body);
 
-function fmt(v){
-  return money(v);
-}
-// ─────────────────────────────────────────────
-
-
-
-async function api(path, method='GET', body=null) {
-  const opts = { method, headers: {'Content-Type':'application/json'} };
-  if (body) opts.body = JSON.stringify(body);
   const res = await fetch(API + path, opts);
-  if (!res.ok) { const e = await res.json().catch(()=>({})); throw new Error(e.error||res.statusText); }
+
+  if(!res.ok){
+    const e = await res.json().catch(()=>({}));
+    throw new Error(e.error || res.statusText);
+  }
+
   return res.json();
 }
 
-let orders=[], history=[], editId=null, selectedPayMethod='';
+
+/* =====================================================
+   GLOBAL STATE
+===================================================== */
+
+let orders = [];
+let history = [];
+let editId = null;
 
 
-// =========================
-// ALTERAÇÕES PRINCIPAIS
-// =========================
+/* =====================================================
+   PRICE AUTO FILL
+===================================================== */
 
+function autoPrice(sel, fn){
 
-// AUTO PRICE
-function autoPrice(sel,fn){
-  const p=PRODUCTS.find(x=>x.val===sel.value);
+  const p = PRODUCTS.find(x => x.val === sel.value);
+
   if(p){
-    sel.closest('.item-row').querySelector('.item-price').value = fixed(p.price,2);
+    sel.closest('.item-row')
+       .querySelector('.item-price')
+       .value = fixed(p.price,2);
   }
-  fn==='calcTotal'?calcTotal():calcEditTotal();
+
+  if(fn === 'calcTotal') calcTotal();
+  if(fn === 'calcEditTotal') calcEditTotal();
 }
 
 
-// SUBTOTAL
-function calcSubtotals(cid){
-  let t=0;
+/* =====================================================
+   SUBTOTAL CALC
+===================================================== */
 
-  document.querySelectorAll(`#${cid} .item-row`).forEach(row=>{
-    const qty   = toNumber(row.querySelector('.item-qty').value);
-    const price = toNumber(row.querySelector('.item-price').value);
+function calcSubtotals(containerId){
 
-    const sub = qty * price;
+  let total = 0;
 
-    row.querySelector('.item-subtotal').value = fmt(sub);
+  document
+    .querySelectorAll(`#${containerId} .item-row`)
+    .forEach(row => {
 
-    t += sub;
-  });
+      const qty   = toNumber(row.querySelector('.item-qty').value);
+      const price = toNumber(row.querySelector('.item-price').value);
 
-  return t;
+      const sub = qty * price;
+
+      row.querySelector('.item-subtotal').value = fmt(sub);
+
+      total += sub;
+    });
+
+  return total;
 }
 
 
-// EDIT MODAL PRICE
+/* =====================================================
+   EDIT MODAL
+===================================================== */
+
 function openEdit(id){
-  editId=id;
-  const o=orders.find(x=>x.id===id);
 
-  const c=document.getElementById('e-items-list');
-  c.innerHTML='';
+  editId = id;
 
-  (o.items||[]).forEach(item=>{
+  const o = orders.find(x => x.id === id);
+
+  const c = document.getElementById('e-items-list');
+  c.innerHTML = '';
+
+  (o.items || []).forEach(item => {
+
     addItemRow('e-items-list','calcEditTotal');
 
-    const rows=c.querySelectorAll('.item-row');
-    const row=rows[rows.length-1];
+    const rows = c.querySelectorAll('.item-row');
+    const row = rows[rows.length-1];
 
-    row.querySelector('.item-type').value=item.type;
-    row.querySelector('.item-qty').value=item.qty;
-    row.querySelector('.item-price').value=fixed(item.price,2);
-    row.querySelector('.item-subtotal').value=fmt(item.subtotal);
+    row.querySelector('.item-type').value  = item.type;
+    row.querySelector('.item-qty').value   = toNumber(item.qty);
+    row.querySelector('.item-price').value = fixed(item.price,2);
+    row.querySelector('.item-subtotal').value = fmt(item.subtotal);
   });
 
   calcEditTotal();
-  document.getElementById('edit-modal').classList.add('open');
+
+  document
+    .getElementById('edit-modal')
+    .classList.add('open');
 }
 
 
-// =========================
-// STATS (TODOS seguros)
-// =========================
+/* =====================================================
+   STATS (SAFE)
+===================================================== */
 
 function renderStats(){
 
-  const meatTotal = 0;
-  const chickenTotal = 0;
+  let meatTotal = 0;
+  let chickenTotal = 0;
 
-  document.getElementById('stats-boxes').innerHTML=`
-    <div class="stat-box"><div class="num">${fixed(meatTotal,1)}<span>kg</span></div></div>
-    <div class="stat-box"><div class="num">${fixed(chickenTotal,0)}<span>un</span></div></div>
+  history.forEach(h=>{
+    meatTotal    += toNumber(h.meatQty);
+    chickenTotal += toNumber(h.chickenQty);
+  });
+
+  document.getElementById('stats-boxes').innerHTML = `
+    <div class="stat-box">
+      <div class="num">${fixed(meatTotal,1)}<span>kg</span></div>
+      <div class="lbl">🥩 Carne</div>
+    </div>
+
+    <div class="stat-box">
+      <div class="num">${fixed(chickenTotal,0)}<span>un</span></div>
+      <div class="lbl">🍗 Frango</div>
+    </div>
   `;
-
 }
 
 
+/* =====================================================
+   STARTUP
+===================================================== */
 
-// =========================
-// QUALQUER CÁLCULO → toNumber()
-// QUALQUER FORMATAÇÃO → fmt()
-// QUALQUER DECIMAL → fixed()
-// =========================
-
-
-
-init();
-
+document.addEventListener('DOMContentLoaded', () => {
+  console.log('App carregado ✔');
+});
 </script>
