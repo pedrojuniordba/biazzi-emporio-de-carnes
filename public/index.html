@@ -3,6 +3,18 @@
 <script>
 const API = '/api';
 
+  // SAFE NUMBER HELPERS
+function toNumber(v){
+  const n = Number(v);
+  return Number.isFinite(n) ? n : 0;
+}
+function fixed(v,d=2){
+  return toNumber(v).toFixed(d);
+}
+function fmt(v){
+  return 'R$ ' + fixed(v,2).replace('.',',');
+}
+
 
 // ─────────────────────────────────────────────
 // SAFE NUMBER HELPERS (ANTI toFixed CRASH)
