@@ -3,7 +3,18 @@ const API = '/api';
 
 
 /* =====================================================
-   SAFE NUMBER HELPERS  (NUNCA MAIS toFixed crash)
+   PRODUCTS (OBRIGATÓRIO — estava faltando ❌)
+===================================================== */
+
+const PRODUCTS = [
+  { val:'meat',    label:'Carne',  price:60 },
+  { val:'ribs',    label:'Costela',price:55 },
+  { val:'chicken', label:'Frango', price:25 }
+];
+
+
+/* =====================================================
+   SAFE NUMBER HELPERS
 ===================================================== */
 
 function toNumber(v){
@@ -53,11 +64,39 @@ let editId = null;
 
 
 /* =====================================================
+   ITEM ROW (ESTAVA FALTANDO ❌)
+===================================================== */
+
+function addItemRow(containerId, fn){
+
+  const container = document.getElementById(containerId);
+
+  const row = document.createElement('div');
+  row.className = 'item-row';
+
+  row.innerHTML = `
+    <select class="item-type">
+      ${PRODUCTS.map(p=>`<option value="${p.val}">${p.label}</option>`).join('')}
+    </select>
+
+    <input class="item-qty" type="number" step="0.1" value="1">
+    <input class="item-price" type="number" step="0.01" value="0">
+    <input class="item-subtotal" readonly>
+  `;
+
+  container.appendChild(row);
+
+  row.querySelector('.item-type').onchange = () => autoPrice(row.querySelector('.item-type'), fn);
+  row.querySelector('.item-qty').oninput = window[fn];
+  row.querySelector('.item-price').oninput = window[fn];
+}
+
+
+/* =====================================================
    PRICE AUTO FILL
 ===================================================== */
 
 function autoPrice(sel, fn){
-
   const p = PRODUCTS.find(x => x.val === sel.value);
 
   if(p){
@@ -66,8 +105,7 @@ function autoPrice(sel, fn){
        .value = fixed(p.price,2);
   }
 
-  if(fn === 'calcTotal') calcTotal();
-  if(fn === 'calcEditTotal') calcEditTotal();
+  window[fn]();
 }
 
 
@@ -96,66 +134,12 @@ function calcSubtotals(containerId){
   return total;
 }
 
-
-/* =====================================================
-   EDIT MODAL
-===================================================== */
-
-function openEdit(id){
-
-  editId = id;
-
-  const o = orders.find(x => x.id === id);
-
-  const c = document.getElementById('e-items-list');
-  c.innerHTML = '';
-
-  (o.items || []).forEach(item => {
-
-    addItemRow('e-items-list','calcEditTotal');
-
-    const rows = c.querySelectorAll('.item-row');
-    const row = rows[rows.length-1];
-
-    row.querySelector('.item-type').value  = item.type;
-    row.querySelector('.item-qty').value   = toNumber(item.qty);
-    row.querySelector('.item-price').value = fixed(item.price,2);
-    row.querySelector('.item-subtotal').value = fmt(item.subtotal);
-  });
-
-  calcEditTotal();
-
-  document
-    .getElementById('edit-modal')
-    .classList.add('open');
+function calcTotal(){
+  calcSubtotals('items-list');
 }
 
-
-/* =====================================================
-   STATS (SAFE)
-===================================================== */
-
-function renderStats(){
-
-  let meatTotal = 0;
-  let chickenTotal = 0;
-
-  history.forEach(h=>{
-    meatTotal    += toNumber(h.meatQty);
-    chickenTotal += toNumber(h.chickenQty);
-  });
-
-  document.getElementById('stats-boxes').innerHTML = `
-    <div class="stat-box">
-      <div class="num">${fixed(meatTotal,1)}<span>kg</span></div>
-      <div class="lbl">🥩 Carne</div>
-    </div>
-
-    <div class="stat-box">
-      <div class="num">${fixed(chickenTotal,0)}<span>un</span></div>
-      <div class="lbl">🍗 Frango</div>
-    </div>
-  `;
+function calcEditTotal(){
+  calcSubtotals('e-items-list');
 }
 
 
@@ -164,6 +148,6 @@ function renderStats(){
 ===================================================== */
 
 document.addEventListener('DOMContentLoaded', () => {
-  console.log('App carregado ✔');
+  console.log('🚀 Front carregado com sucesso');
 });
 </script>
