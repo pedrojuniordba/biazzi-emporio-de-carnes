@@ -92,7 +92,95 @@
   .empty{text-align:center;color:var(--muted);padding:3rem 1rem;font-size:.95rem;}
   .empty span{display:block;font-size:2.5rem;margin-bottom:.5rem;}
   .toast{position:fixed;bottom:2rem;right:2rem;background:var(--ash);border:1px solid var(--gold);color:var(--cream);padding:.9rem 1.4rem;border-radius:10px;font-size:.9rem;z-index:999;animation:fadeIn .3s ease;box-shadow:0 4px 20px rgba(0,0,0,.4);}
-  @media(max-width:640px){.form-grid{grid-template-columns:1fr;}.item-row{grid-template-columns:1fr 1fr;}.item-row .item-type{grid-column:1/-1;}main{padding:1rem;}.period-bar{flex-direction:column;}.period-bar input{width:100%;}}
+  /* ── TOUCH: botões maiores para dedos ── */
+  .btn{min-height:44px;display:inline-flex;align-items:center;justify-content:center;}
+  .pay-pill{min-height:44px;display:inline-flex;align-items:center;}
+
+  /* ── TABLET (até 900px) ── */
+  @media(max-width:900px){
+    main{padding:1.5rem;}
+    .stats-grid{grid-template-columns:repeat(auto-fit,minmax(130px,1fr));}
+    .period-bar input{width:140px;}
+  }
+
+  /* ── MOBILE (até 640px) ── */
+  @media(max-width:640px){
+    /* Header */
+    header{padding:0 1rem;height:60px;}
+    header h1{font-size:1.3rem;}
+    #order-count-badge{font-size:.72rem;text-align:right;max-width:110px;line-height:1.3;}
+
+    /* Nav */
+    nav{padding:0 .5rem;}
+    nav button{font-size:.75rem;padding:.75rem .8rem;}
+
+    /* Main */
+    main{padding:.75rem;}
+    .card{padding:1rem;}
+    .card h2{font-size:1.05rem;}
+
+    /* Form */
+    .form-grid{grid-template-columns:1fr;}
+    input,select{font-size:1rem;padding:.75rem 1rem;} /* evita zoom no iOS */
+
+    /* Item rows — empilha em mobile */
+    .item-row{
+      display:grid;
+      grid-template-columns:1fr 1fr;
+      grid-template-rows:auto auto auto;
+      gap:.5rem;
+      background:var(--smoke);
+      border:1px solid var(--border);
+      border-radius:8px;
+      padding:.7rem;
+      margin-bottom:.75rem;
+    }
+    .item-row .item-type{grid-column:1/-1;}
+    .item-row .item-subtotal{grid-column:1/2;}
+    .item-row button{grid-column:2/3;justify-self:end;align-self:center;}
+
+    /* Botões de ação */
+    .order-actions{flex-direction:column;}
+    .order-actions .btn{width:100%;justify-content:center;}
+    .btn-sm{min-height:40px;font-size:.82rem;}
+
+    /* Payment pills */
+    .pay-methods{gap:.5rem;}
+    .pay-pill{flex:1;justify-content:center;font-size:.8rem;padding:.5rem .6rem;}
+
+    /* Stats */
+    .stats-grid{grid-template-columns:repeat(2,1fr);}
+    .stat-box .num{font-size:1.6rem;}
+
+    /* Period filter */
+    .period-bar{flex-direction:column;gap:.75rem;}
+    .period-bar > div{width:100%;}
+    .period-bar input{width:100%;}
+    .period-shortcuts{margin-top:0;}
+    .shortcut{flex:1;text-align:center;}
+
+    /* Modal */
+    .modal{width:96%;padding:1.2rem;margin:0 .5rem;}
+    .modal-actions{flex-direction:column-reverse;}
+    .modal-actions .btn{width:100%;}
+
+    /* History */
+    .history-row{padding:.7rem .8rem;}
+
+    /* Toast */
+    .toast{bottom:1rem;right:1rem;left:1rem;text-align:center;}
+
+    /* Botão registrar pedido */
+    #new-order > div:last-child{flex-direction:column;}
+    #new-order > div:last-child .btn{width:100%;}
+  }
+
+  /* ── VERY SMALL (até 380px — iPhone SE etc) ── */
+  @media(max-width:380px){
+    nav button{font-size:.68rem;padding:.65rem .6rem;}
+    .stats-grid{grid-template-columns:repeat(2,1fr);}
+    .stat-box .num{font-size:1.4rem;}
+  }
 </style>
 </head>
 <body>
@@ -106,8 +194,8 @@
 </header>
 
 <nav>
-  <button class="active" onclick="showTab('new-order',this)">➕ Novo Pedido</button>
-  <button onclick="showTab('orders',this)">📋 Pedidos</button>
+  <button class="active" onclick="showTab('new-order',this)">➕ Nova Reserva</button>
+  <button onclick="showTab('orders',this)">📋 Reservas</button>
   <button onclick="showTab('history',this)">📜 Histórico</button>
   <button onclick="showTab('stats',this)">📊 Estatísticas</button>
 </nav>
@@ -154,7 +242,7 @@
 
   <!-- PEDIDOS -->
   <div id="orders" class="tab-panel">
-    <div class="search-bar"><input type="text" placeholder="Buscar por nome ou telefone..." oninput="renderOrders(this.value)"/></div>
+    <div class="search-bar"><input type="text" placeholder="Buscar reserva por nome ou telefone..." oninput="renderOrders(this.value)"/></div>
     <div id="orders-list"></div>
   </div>
 
@@ -237,7 +325,7 @@ async function api(path, method='GET', body=null) {
   return res.json();
 }
 
-let orders=[], history=[], editId=null, selectedPayMethod='';
+let orders=[], allOrdersCache=[], history=[], editId=null, selectedPayMethod='';
 
 async function init() {
   setTodayDate();
@@ -255,7 +343,15 @@ function fmtDate(iso){
 }
 function getOrderDate(o){ return (o.order_date||o.created_at||'').split(' ')[0].split('T')[0]; }
 
-async function loadOrders(){ orders = await api('/orders'); renderOrders(); updateBadge(); }
+async function loadOrders(){ 
+  // Aba pedidos: apenas pendentes
+  const all = await api('/orders'); 
+  orders = all.filter(o=>o.status==='pending');
+  // Para estatísticas, guardar todos os pedidos
+  allOrdersCache = all;
+  renderOrders(); 
+  updateBadge(); 
+}
 async function loadHistory(){ history = await api('/history'); renderHistory(); }
 
 function showTab(id, btn) {
@@ -352,7 +448,7 @@ function renderOrders(search=''){
   const c=document.getElementById('orders-list');
   const q=search.toLowerCase();
   const f=orders.filter(o=>!q||o.name.toLowerCase().includes(q)||(o.phone||'').includes(q));
-  if(!f.length){c.innerHTML=`<div class="empty"><span>📋</span>Nenhum pedido encontrado.</div>`;return;}
+  if(!f.length){c.innerHTML=`<div class="empty"><span>📋</span>Nenhuma reserva pendente.</div>`;return;}
   c.innerHTML=f.map(o=>`
     <div class="order-card">
       <div class="order-meta">
@@ -362,20 +458,18 @@ function renderOrders(search=''){
           <div style="font-size:.76rem;color:var(--muted);margin-top:.1rem;">${o.phone||'Sem telefone'}</div>
         </div>
         <div style="display:flex;gap:.5rem;align-items:center;flex-wrap:wrap;">
-          <span class="badge badge-${o.status}">${statusLabel(o.status)}</span>
+          <span class="badge badge-pending">Aguardando retirada</span>
           <strong style="color:var(--ember)">${fmt(o.total)}</strong>
         </div>
       </div>
       <div class="order-items">
-        ${(o.items||[]).map(i=>`<div>• ${prodLabel(i.type)} × ${i.qty} = <span>${fmt(i.subtotal)}</span></div>`).join('')}
+        ${(o.items||[]).map(i=>`<div>• ${prodLabel(i.type)} × ${parseFloat(i.qty||0).toFixed(2).replace(/\.?0+$/,'')} = <span>${fmt(i.subtotal)}</span></div>`).join('')}
         <div style="margin-top:.4rem;font-size:.8rem;">Pagamento: <span>${payLabel(o.payment)}</span></div>
       </div>
       <div class="order-actions">
-        ${o.status==='pending'?`
-          <button class="btn btn-green btn-sm" onclick="markPaid(${o.id})">✔ Pago</button>
-          <button class="btn btn-secondary btn-sm" onclick="openEdit(${o.id})">✏ Editar</button>
-          <button class="btn btn-danger btn-sm" onclick="cancelOrder(${o.id})">✕ Cancelar</button>
-        `:`<button class="btn btn-danger btn-sm" onclick="deleteOrder(${o.id})">🗑 Remover</button>`}
+        <button class="btn btn-green btn-sm" onclick="markPaid(${o.id})">✔ Confirmar Pagamento</button>
+        <button class="btn btn-secondary btn-sm" onclick="openEdit(${o.id})">✏ Editar</button>
+        <button class="btn btn-danger btn-sm" onclick="cancelOrder(${o.id})">✕ Cancelar</button>
       </div>
     </div>`).join('');
 }
@@ -383,9 +477,26 @@ function prodLabel(v){return{'meat':'🥩 Carne','chicken':'🍗 Frango','ribs':
 function payLabel(v){return{'cash':'💵 Dinheiro','card':'💳 Cartão','pix':'⚡ PIX'}[v]||v;}
 function statusLabel(v){return{'pending':'Pendente','paid':'Pago','cancelled':'Cancelado'}[v]||v;}
 
-async function markPaid(id){try{await api(`/orders/${id}`,'PUT',{status:'paid'});toast('✅ Pago!');await loadOrders();await loadHistory();}catch(e){toast('❌ '+e.message);}}
-async function cancelOrder(id){if(!confirm('Cancelar este pedido?'))return;try{await api(`/orders/${id}`,'PUT',{status:'cancelled'});toast('Cancelado.');await loadOrders();await loadHistory();}catch(e){toast('❌ '+e.message);}}
-async function deleteOrder(id){if(!confirm('Remover permanentemente?'))return;try{await api(`/orders/${id}`,'DELETE');toast('🗑 Removido.');await loadOrders();}catch(e){toast('❌ '+e.message);}}
+async function markPaid(id){
+  try{
+    await api(`/orders/${id}`,'PUT',{status:'paid'});
+    toast('✅ Pagamento confirmado! Movido para o histórico.');
+    await loadOrders(); await loadHistory(); renderStats();
+  }catch(e){toast('❌ '+e.message);}
+}
+async function cancelOrder(id){
+  if(!confirm('Cancelar este pedido?'))return;
+  try{
+    await api(`/orders/${id}`,'PUT',{status:'cancelled'});
+    toast('Pedido cancelado.');
+    await loadOrders(); await loadHistory(); renderStats();
+  }catch(e){toast('❌ '+e.message);}
+}
+async function deleteOrder(id){
+  if(!confirm('Remover permanentemente?'))return;
+  try{await api(`/orders/${id}`,'DELETE');toast('🗑 Removido.');await loadOrders();}
+  catch(e){toast('❌ '+e.message);}
+}
 
 function openEdit(id){
   editId=id; const o=orders.find(x=>x.id===id);
@@ -423,23 +534,45 @@ async function saveEdit(){
 function renderHistory(search=''){
   const c=document.getElementById('history-list');
   const q=search.toLowerCase();
-  const h=history.filter(x=>!q||x.name.toLowerCase().includes(q)||(x.phone||'').includes(q));
+  const h=history.filter(x=>!q||x.name.toLowerCase().includes(x.phone||'').includes(q)||x.name.toLowerCase().includes(q)||(x.phone||'').includes(q));
   if(!h.length){c.innerHTML=`<div class="empty"><span>📜</span>Sem histórico ainda.</div>`;return;}
-  c.innerHTML=h.map(o=>`
-    <div class="history-row ${o.status}">
-      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:.3rem;">
-        <span class="history-name">${o.name}</span>
-        <span class="badge badge-${o.status}">${statusLabel(o.status)}</span>
-      </div>
-      <div class="history-detail">
-        📅 <strong style="color:var(--gold)">${fmtDate(o.order_date||getOrderDate(o))}</strong>
-        · ${o.phone||'Sem tel'} · Resolvido: ${o.resolved_at||'-'}
-      </div>
-      <div class="history-detail" style="margin-top:.3rem;">
-        ${(o.items||[]).map(i=>`${prodLabel(i.type)} ×${i.qty}`).join(', ')} ·
-        <strong style="color:var(--ember)">${fmt(o.total)}</strong> · ${payLabel(o.payment)}
-      </div>
-    </div>`).join('');
+
+  // Group by order_date, sorted most recent first
+  const groups={};
+  h.forEach(o=>{
+    const d=o.order_date||(o.created_at||'').split(' ')[0]||'—';
+    if(!groups[d]) groups[d]=[];
+    groups[d].push(o);
+  });
+  const sortedDates=Object.keys(groups).sort((a,b)=>b.localeCompare(a));
+
+  c.innerHTML=sortedDates.map(date=>{
+    const items=groups[date];
+    const dayRevenue=items.filter(o=>o.status==='paid').reduce((s,o)=>s+parseFloat(o.total||0),0);
+    const dayLabel=fmtDate(date);
+    return`
+      <div style="margin-bottom:1.5rem;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.6rem;padding-bottom:.4rem;border-bottom:1px solid var(--border);">
+          <span style="font-family:'Playfair Display',serif;color:var(--gold);font-size:1rem;">📅 ${dayLabel}</span>
+          ${dayRevenue>0?`<span style="font-size:.85rem;color:#6fcf7a;font-weight:600;">💰 ${fmt(dayRevenue)}</span>`:''}
+        </div>
+        ${items.map(o=>`
+          <div class="history-row ${o.status}" style="margin-bottom:.5rem;">
+            <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:.3rem;">
+              <span class="history-name">${o.name}</span>
+              <div style="display:flex;gap:.5rem;align-items:center;">
+                <strong style="color:var(--ember)">${fmt(o.total)}</strong>
+                <span class="badge badge-${o.status}">${statusLabel(o.status)}</span>
+              </div>
+            </div>
+            <div class="history-detail" style="margin-top:.3rem;">
+              ${(o.items||[]).map(i=>`${prodLabel(i.type)} ×${parseFloat(i.qty||0).toFixed(2).replace(/\.?0+$/,'')}`).join(', ')}
+              · ${payLabel(o.payment)}
+              ${o.phone?`· ${o.phone}`:''}
+            </div>
+          </div>`).join('')}
+      </div>`;
+  }).join('');
 }
 
 // ─── PERIOD SHORTCUTS ─────────────────────────────────────────────────────────
@@ -466,8 +599,11 @@ function renderStats(){
   const from=document.getElementById('s-from')?.value||'2000-01-01';
   const to=document.getElementById('s-to')?.value||'2099-12-31';
 
-  const inRange=orders.filter(o=>{ const d=getOrderDate(o); return d>=from&&d<=to&&o.status!=='cancelled'; });
-  const cancelledInRange=orders.filter(o=>{ const d=getOrderDate(o); return d>=from&&d<=to&&o.status==='cancelled'; });
+  // Use full orders cache (includes paid/cancelled) + history for complete data
+  const allData=[...allOrdersCache];
+  
+  const inRange=allData.filter(o=>{ const d=getOrderDate(o); return d>=from&&d<=to&&o.status!=='cancelled'; });
+  const cancelledInRange=allData.filter(o=>{ const d=getOrderDate(o); return d>=from&&d<=to&&o.status==='cancelled'; });
   const paidInRange=inRange.filter(o=>o.status==='paid');
   const pendingInRange=inRange.filter(o=>o.status==='pending');
   const revenue=paidInRange.reduce((s,o)=>s+parseFloat(o.total||0),0);
@@ -545,8 +681,8 @@ function renderStats(){
 }
 
 function updateBadge(){
-  const n=orders.filter(o=>o.status==='pending').length;
-  document.getElementById('order-count-badge').textContent=`${n} pedido${n!==1?'s':''} ativo${n!==1?'s':''}`;
+  const n=orders.length; // orders já é só pendentes
+  document.getElementById('order-count-badge').textContent=`${n} reserva${n!==1?'s':''} pendente${n!==1?'s':''}`;
 }
 let toastTimer;
 function toast(msg){
