@@ -92,6 +92,21 @@
   .empty{text-align:center;color:var(--muted);padding:3rem 1rem;font-size:.95rem;}
   .empty span{display:block;font-size:2.5rem;margin-bottom:.5rem;}
   .toast{position:fixed;bottom:2rem;right:2rem;background:var(--ash);border:1px solid var(--gold);color:var(--cream);padding:.9rem 1.4rem;border-radius:10px;font-size:.9rem;z-index:999;animation:fadeIn .3s ease;box-shadow:0 4px 20px rgba(0,0,0,.4);}
+
+  /* ── LOGIN ── */
+  #login-screen{display:none;position:fixed;inset:0;background:var(--smoke);z-index:500;align-items:center;justify-content:center;flex-direction:column;}
+  #login-screen.visible{display:flex;}
+  .login-box{background:var(--card-bg);border:1px solid var(--border);border-radius:16px;padding:2.5rem 2rem;width:100%;max-width:360px;box-shadow:0 8px 40px rgba(0,0,0,.5);}
+  .login-box h1{font-family:'Playfair Display',serif;font-size:2rem;color:var(--ember);text-align:center;margin-bottom:.2rem;}
+  .login-box .login-sub{text-align:center;color:var(--gold);font-size:.8rem;letter-spacing:.15em;text-transform:uppercase;margin-bottom:2rem;}
+  .login-box label{font-size:.78rem;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;display:block;margin-bottom:.4rem;}
+  .login-box input{width:100%;background:var(--ash);border:1px solid var(--border);color:var(--cream);font-size:1rem;padding:.75rem 1rem;border-radius:8px;outline:none;margin-bottom:1.2rem;}
+  .login-box input:focus{border-color:var(--ember);}
+  .login-box .btn-login{width:100%;background:var(--fire);color:#fff;border:none;border-radius:8px;padding:.85rem;font-size:1rem;font-weight:700;cursor:pointer;transition:background .2s;min-height:48px;}
+  .login-box .btn-login:hover{background:#c94010;}
+  .login-box .btn-login:disabled{opacity:.6;cursor:not-allowed;}
+  .login-error{color:#e57373;font-size:.85rem;text-align:center;margin-top:.8rem;display:none;}
+  .login-error.visible{display:block;}
   /* ── TOUCH: botões maiores para dedos ── */
   .btn{min-height:44px;display:inline-flex;align-items:center;justify-content:center;}
   .pay-pill{min-height:44px;display:inline-flex;align-items:center;}
@@ -185,12 +200,25 @@
 </head>
 <body>
 
+<!-- ── TELA DE LOGIN ────────────────────────────────────────────────────── -->
+<div id="login-screen">
+  <div class="login-box">
+    <h1>🥩 Biazzi</h1>
+    <div class="login-sub">Empório da Carne</div>
+    <label for="login-password">Senha de acesso</label>
+    <input type="password" id="login-password" placeholder="Digite a senha..." onkeydown="if(event.key==='Enter')doLogin()"/>
+    <button class="btn-login" onclick="doLogin()" id="login-btn">Entrar</button>
+    <div class="login-error" id="login-error">Senha incorreta. Tente novamente.</div>
+  </div>
+</div>
+
 <header>
   <div style="display:flex;flex-direction:column;line-height:1.1;">
     <h1>🥩 Biazzi</h1>
     <span style="font-family:'DM Sans',sans-serif;font-size:.7rem;color:var(--gold);letter-spacing:.15em;text-transform:uppercase;-webkit-text-fill-color:var(--gold);">Empório da Carne</span>
   </div>
   <span id="order-count-badge">carregando...</span>
+  <button class="btn btn-secondary" style="font-size:.78rem;padding:.4rem .9rem;min-height:36px;" onclick="doLogout()">🔒 Sair</button>
 </header>
 
 <nav>
@@ -316,11 +344,69 @@
 
 <script>
 const API = '/api';
+const TOKEN_KEY = 'biazzi_auth_token';
+
+// ─── AUTH ─────────────────────────────────────────────────────────────────────
+function getToken(){ return localStorage.getItem(TOKEN_KEY); }
+function setToken(t){ localStorage.setItem(TOKEN_KEY, t); }
+function clearToken(){ localStorage.removeItem(TOKEN_KEY); }
+
+function showLogin(){ document.getElementById('login-screen').classList.add('visible'); }
+function hideLogin(){ document.getElementById('login-screen').classList.remove('visible'); }
+
+async function doLogin(){
+  const pwd = document.getElementById('login-password').value;
+  const btn = document.getElementById('login-btn');
+  const err = document.getElementById('login-error');
+  err.classList.remove('visible');
+  btn.disabled = true; btn.textContent = 'Entrando...';
+  try {
+    const res = await fetch('/api/auth/login', {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ password: pwd })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Senha incorreta.');
+    setToken(data.token);
+    hideLogin();
+    document.getElementById('login-password').value = '';
+    await init();
+  } catch(e) {
+    err.textContent = e.message;
+    err.classList.add('visible');
+  } finally {
+    btn.disabled = false; btn.textContent = 'Entrar';
+  }
+}
+
+async function doLogout(){
+  if(!confirm('Deseja sair do sistema?')) return;
+  try { await fetch('/api/auth/logout', { method:'POST', headers:{'x-auth-token': getToken()||''} }); } catch(e){}
+  clearToken();
+  showLogin();
+  // Limpa os dados da tela
+  orders=[]; allOrdersCache=[]; history=[];
+  document.getElementById('orders-list').innerHTML='';
+  document.getElementById('history-list').innerHTML='';
+}
+
+async function checkAuth(){
+  const token = getToken();
+  if(!token){ showLogin(); return false; }
+  try {
+    const res = await fetch('/api/auth/verify', { headers:{'x-auth-token': token} });
+    const data = await res.json();
+    if(!data.valid){ clearToken(); showLogin(); return false; }
+    return true;
+  } catch(e){ showLogin(); return false; }
+}
 
 async function api(path, method='GET', body=null) {
-  const opts = { method, headers: {'Content-Type':'application/json'} };
+  const opts = { method, headers: {'Content-Type':'application/json', 'x-auth-token': getToken()||''} };
   if (body) opts.body = JSON.stringify(body);
   const res = await fetch(API + path, opts);
+  if (res.status === 401) { clearToken(); showLogin(); throw new Error('Sessão expirada. Faça login novamente.'); }
   if (!res.ok) { const e = await res.json().catch(()=>({})); throw new Error(e.error||res.statusText); }
   return res.json();
 }
@@ -328,6 +414,8 @@ async function api(path, method='GET', body=null) {
 let orders=[], allOrdersCache=[], history=[], editId=null, selectedPayMethod='';
 
 async function init() {
+  const ok = await checkAuth();
+  if (!ok) return;
   setTodayDate();
   setShortcut('month', document.querySelector('.shortcut.active'));
   addItemRow('items-list','calcTotal');

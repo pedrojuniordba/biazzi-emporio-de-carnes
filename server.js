@@ -312,6 +312,74 @@ cron.schedule('0 0 20 * * 0', async () => {
   else console.log('[Cron] Sem pedidos hoje.');
 }, { timezone: process.env.TZ || 'America/Sao_Paulo' });
 
+// ─── AUTH ─────────────────────────────────────────────────────────────────────
+const crypto = require('crypto');
+
+function generateToken() {
+  return crypto.randomBytes(32).toString('hex');
+}
+
+// In-memory token store (survives restarts via re-login)
+const validTokens = new Set();
+
+// Rate limit for login attempts
+const loginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 min
+  max: 10,
+  message: { error: 'Muitas tentativas. Aguarde 15 minutos.' }
+});
+
+app.post('/api/auth/login', loginLimiter, (req, res) => {
+  const { password } = req.body;
+  const APP_PASSWORD = process.env.APP_PASSWORD;
+
+  if (!APP_PASSWORD) {
+    // Se não houver senha configurada, acesso livre (modo dev)
+    const token = generateToken();
+    validTokens.add(token);
+    return res.json({ success: true, token });
+  }
+
+  if (!password || password !== APP_PASSWORD) {
+    return res.status(401).json({ error: 'Senha incorreta.' });
+  }
+
+  const token = generateToken();
+  validTokens.add(token);
+  res.json({ success: true, token });
+});
+
+app.post('/api/auth/logout', (req, res) => {
+  const token = req.headers['x-auth-token'];
+  if (token) validTokens.delete(token);
+  res.json({ success: true });
+});
+
+app.get('/api/auth/verify', (req, res) => {
+  const token = req.headers['x-auth-token'];
+  const APP_PASSWORD = process.env.APP_PASSWORD;
+  // Se não há senha configurada, sempre autenticado
+  if (!APP_PASSWORD) return res.json({ valid: true });
+  res.json({ valid: token ? validTokens.has(token) : false });
+});
+
+// Middleware de autenticação para todas as rotas /api (exceto auth)
+function requireAuth(req, res, next) {
+  const APP_PASSWORD = process.env.APP_PASSWORD;
+  if (!APP_PASSWORD) return next(); // sem senha = livre
+  const token = req.headers['x-auth-token'];
+  if (!token || !validTokens.has(token)) {
+    return res.status(401).json({ error: 'Não autorizado.' });
+  }
+  next();
+}
+
+// Aplicar auth em todas as rotas de dados
+app.use('/api/orders', requireAuth);
+app.use('/api/history', requireAuth);
+app.use('/api/stats', requireAuth);
+app.use('/api/whatsapp', requireAuth);
+
 // ─── START ────────────────────────────────────────────────────────────────────
 initDB().then(() => {
   app.listen(PORT, '0.0.0.0', () => {
