@@ -484,10 +484,7 @@ async function markPaid(id){
   try{
     await api(`/orders/${id}`,'PUT',{status:'paid'});
     await loadOrders(); await loadHistory(); renderStats();
-    toast('✅ Pagamento confirmado!');
-    // Redireciona automaticamente para o Histórico
-    const histBtn = document.querySelector('nav button:nth-child(3)');
-    if(histBtn) showTab('history', histBtn);
+    toast('✅ Pagamento confirmado! Adicionado ao histórico.');
   }catch(e){
     toast('❌ '+e.message);
     if(btn){ btn.disabled=false; btn.textContent='✔ Confirmar Pagamento'; }
