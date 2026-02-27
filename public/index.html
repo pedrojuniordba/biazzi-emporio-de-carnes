@@ -478,11 +478,20 @@ function payLabel(v){return{'cash':'💵 Dinheiro','card':'💳 Cartão','pix':'
 function statusLabel(v){return{'pending':'Pendente','paid':'Pago','cancelled':'Cancelado'}[v]||v;}
 
 async function markPaid(id){
+  // Desabilita o botão imediatamente para evitar cliques duplos
+  const btn = document.querySelector(`button[onclick="markPaid(${id})"]`);
+  if(btn){ btn.disabled=true; btn.textContent='Processando...'; }
   try{
     await api(`/orders/${id}`,'PUT',{status:'paid'});
-    toast('✅ Pagamento confirmado! Movido para o histórico.');
     await loadOrders(); await loadHistory(); renderStats();
-  }catch(e){toast('❌ '+e.message);}
+    toast('✅ Pagamento confirmado!');
+    // Redireciona automaticamente para o Histórico
+    const histBtn = document.querySelector('nav button:nth-child(3)');
+    if(histBtn) showTab('history', histBtn);
+  }catch(e){
+    toast('❌ '+e.message);
+    if(btn){ btn.disabled=false; btn.textContent='✔ Confirmar Pagamento'; }
+  }
 }
 async function cancelOrder(id){
   if(!confirm('Cancelar este pedido?'))return;
@@ -598,10 +607,11 @@ function applyFilter(){
 function renderStats(){
   const from=document.getElementById('s-from')?.value||'2000-01-01';
   const to=document.getElementById('s-to')?.value||'2099-12-31';
+  const isSingleDay = from===to && from!=='2000-01-01';
 
-  // Use full orders cache (includes paid/cancelled) + history for complete data
+  // Use full orders cache (includes paid/cancelled)
   const allData=[...allOrdersCache];
-  
+
   const inRange=allData.filter(o=>{ const d=getOrderDate(o); return d>=from&&d<=to&&o.status!=='cancelled'; });
   const cancelledInRange=allData.filter(o=>{ const d=getOrderDate(o); return d>=from&&d<=to&&o.status==='cancelled'; });
   const paidInRange=inRange.filter(o=>o.status==='paid');
@@ -620,49 +630,85 @@ function renderStats(){
   const payMap={};
   paidInRange.forEach(o=>{ payMap[o.payment]=(payMap[o.payment]||0)+parseFloat(o.total||0); });
 
-  // Monthly breakdown
-  const monthMap={};
-  allItems.forEach(i=>{
-    const month=i.orderDate?.slice(0,7); if(!month) return;
-    if(!monthMap[month]) monthMap[month]={meat:0,chicken:0};
-    if(i.type==='meat'||i.type==='ribs') monthMap[month].meat+=i.qty;
-    if(i.type==='chicken') monthMap[month].chicken+=i.qty;
-  });
-  const months=Object.keys(monthMap).sort();
-  const maxM=months.length?Math.max(...months.map(m=>Math.max(monthMap[m].meat,monthMap[m].chicken)),1):1;
-
-  // Render summary boxes
-  document.getElementById('stats-boxes').innerHTML=`
-    <div class="stat-box"><div class="num">${inRange.length}</div><div class="lbl">Pedidos</div></div>
-    <div class="stat-box"><div class="num">${paidInRange.length}</div><div class="lbl">Pagos</div></div>
-    <div class="stat-box"><div class="num">${pendingInRange.length}</div><div class="lbl">Pendentes</div></div>
-    <div class="stat-box"><div class="num">${cancelledInRange.length}</div><div class="lbl">Cancelados</div></div>
-    <div class="stat-box"><div class="num" style="font-size:1.2rem">${fmt(revenue)}</div><div class="lbl">Receita</div></div>
-    <div class="stat-box"><div class="num">${meatTotal.toFixed(1)}<span style="font-size:.9rem">kg</span></div><div class="lbl">🥩 Carne</div></div>
-    <div class="stat-box"><div class="num">${chickenTotal.toFixed(0)}<span style="font-size:.9rem">un</span></div><div class="lbl">🍗 Frango</div></div>
-  `;
-
-  // Monthly chart
-  document.getElementById('stats-monthly').innerHTML = months.length===0
-    ? `<div class="empty" style="padding:1.5rem"><span>📅</span>Sem pedidos no período selecionado.</div>`
-    : months.map(m=>{
-        const {meat,chicken}=monthMap[m];
-        const [y,mo]=m.split('-');
-        const lbl=new Date(Number(y),Number(mo)-1,1).toLocaleDateString('pt-BR',{month:'long',year:'numeric'});
-        return`<div class="month-row">
-          <div class="month-title">${lbl.charAt(0).toUpperCase()+lbl.slice(1)}</div>
-          <div class="bar-container">
-            <div class="bar-label"><span>🥩 Carne & Costela</span><span>${meat.toFixed(2)} kg</span></div>
-            <div class="bar-track"><div class="bar-fill bar-meat" style="width:${(meat/maxM*100).toFixed(1)}%">${meat>0?meat.toFixed(1):''}</div></div>
+  // ── MODO DIA ÚNICO ───────────────────────────────────────────────────────
+  if(isSingleDay){
+    const dayLabel=fmtDate(from);
+    document.getElementById('stats-boxes').innerHTML=`
+      <div class="stat-box" style="grid-column:1/-1;background:linear-gradient(135deg,var(--card-bg),var(--ash));border-color:var(--gold);">
+        <div style="font-size:.8rem;color:var(--gold);font-weight:700;letter-spacing:.08em;text-transform:uppercase;margin-bottom:.5rem;">📅 ${dayLabel}</div>
+        <div style="display:flex;justify-content:center;gap:2rem;flex-wrap:wrap;">
+          <div style="text-align:center;">
+            <div style="font-family:'Playfair Display',serif;font-size:2.2rem;color:var(--ember);">${paidInRange.length}</div>
+            <div style="font-size:.75rem;color:var(--muted);text-transform:uppercase;letter-spacing:.07em;">Vendas</div>
           </div>
-          <div class="bar-container">
-            <div class="bar-label"><span>🍗 Frango Assado</span><span>${chicken.toFixed(0)} un</span></div>
-            <div class="bar-track"><div class="bar-fill bar-chicken" style="width:${(chicken/maxM*100).toFixed(1)}%">${chicken>0?chicken.toFixed(0):''}</div></div>
+          <div style="text-align:center;">
+            <div style="font-family:'Playfair Display',serif;font-size:2.2rem;color:#6fcf7a;">${fmt(revenue)}</div>
+            <div style="font-size:.75rem;color:var(--muted);text-transform:uppercase;letter-spacing:.07em;">Receita</div>
           </div>
-        </div>`;
-      }).join('');
+          ${meatTotal>0?`<div style="text-align:center;">
+            <div style="font-family:'Playfair Display',serif;font-size:2.2rem;color:var(--fire);">${meatTotal.toFixed(2)}<span style="font-size:1rem">kg</span></div>
+            <div style="font-size:.75rem;color:var(--muted);text-transform:uppercase;letter-spacing:.07em;">🥩 Carne</div>
+          </div>`:''}
+          ${chickenTotal>0?`<div style="text-align:center;">
+            <div style="font-family:'Playfair Display',serif;font-size:2.2rem;color:var(--ember);">${chickenTotal.toFixed(0)}<span style="font-size:1rem">un</span></div>
+            <div style="font-size:.75rem;color:var(--muted);text-transform:uppercase;letter-spacing:.07em;">🍗 Frango</div>
+          </div>`:''}
+          ${pendingInRange.length>0?`<div style="text-align:center;">
+            <div style="font-family:'Playfair Display',serif;font-size:2.2rem;color:var(--ember);">${pendingInRange.length}</div>
+            <div style="font-size:.75rem;color:var(--muted);text-transform:uppercase;letter-spacing:.07em;">Pendentes</div>
+          </div>`:''}
+        </div>
+      </div>
+    `;
+    // Esconde gráfico mensal no modo dia único, mostra só totais e pagamento
+    document.getElementById('stats-monthly').innerHTML=
+      inRange.length===0
+        ? `<div class="empty" style="padding:1.5rem"><span>📅</span>Sem pedidos neste dia.</div>`
+        : `<p style="color:var(--muted);font-size:.85rem;padding:.5rem 0;">Resumo completo do dia — selecione um período maior para ver o gráfico mensal.</p>`;
+  } else {
+    // ── MODO PERÍODO ──────────────────────────────────────────────────────
+    document.getElementById('stats-boxes').innerHTML=`
+      <div class="stat-box"><div class="num">${inRange.length}</div><div class="lbl">Pedidos</div></div>
+      <div class="stat-box"><div class="num">${paidInRange.length}</div><div class="lbl">Pagos</div></div>
+      <div class="stat-box"><div class="num">${pendingInRange.length}</div><div class="lbl">Pendentes</div></div>
+      <div class="stat-box"><div class="num">${cancelledInRange.length}</div><div class="lbl">Cancelados</div></div>
+      <div class="stat-box"><div class="num" style="font-size:1.2rem">${fmt(revenue)}</div><div class="lbl">Receita</div></div>
+      <div class="stat-box"><div class="num">${meatTotal.toFixed(1)}<span style="font-size:.9rem">kg</span></div><div class="lbl">🥩 Carne</div></div>
+      <div class="stat-box"><div class="num">${chickenTotal.toFixed(0)}<span style="font-size:.9rem">un</span></div><div class="lbl">🍗 Frango</div></div>
+    `;
 
-  // Total chart
+    // Monthly breakdown
+    const monthMap={};
+    allItems.forEach(i=>{
+      const month=i.orderDate?.slice(0,7); if(!month) return;
+      if(!monthMap[month]) monthMap[month]={meat:0,chicken:0};
+      if(i.type==='meat'||i.type==='ribs') monthMap[month].meat+=i.qty;
+      if(i.type==='chicken') monthMap[month].chicken+=i.qty;
+    });
+    const months=Object.keys(monthMap).sort();
+    const maxM=months.length?Math.max(...months.map(m=>Math.max(monthMap[m].meat,monthMap[m].chicken)),1):1;
+
+    document.getElementById('stats-monthly').innerHTML = months.length===0
+      ? `<div class="empty" style="padding:1.5rem"><span>📅</span>Sem pedidos no período selecionado.</div>`
+      : months.map(m=>{
+          const {meat,chicken}=monthMap[m];
+          const [y,mo]=m.split('-');
+          const lbl=new Date(Number(y),Number(mo)-1,1).toLocaleDateString('pt-BR',{month:'long',year:'numeric'});
+          return`<div class="month-row">
+            <div class="month-title">${lbl.charAt(0).toUpperCase()+lbl.slice(1)}</div>
+            <div class="bar-container">
+              <div class="bar-label"><span>🥩 Carne & Costela</span><span>${meat.toFixed(2)} kg</span></div>
+              <div class="bar-track"><div class="bar-fill bar-meat" style="width:${(meat/maxM*100).toFixed(1)}%">${meat>0?meat.toFixed(1):''}</div></div>
+            </div>
+            <div class="bar-container">
+              <div class="bar-label"><span>🍗 Frango Assado</span><span>${chicken.toFixed(0)} un</span></div>
+              <div class="bar-track"><div class="bar-fill bar-chicken" style="width:${(chicken/maxM*100).toFixed(1)}%">${chicken>0?chicken.toFixed(0):''}</div></div>
+            </div>
+          </div>`;
+        }).join('');
+  }
+
+  // Total chart (sempre visível)
   document.getElementById('stats-chart').innerHTML=`
     <div class="bar-container">
       <div class="bar-label"><span>🥩 Carne & Costela</span><span>${meatTotal.toFixed(2)} kg</span></div>
