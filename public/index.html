@@ -1,153 +1,586 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Biazzi Empório da Carne</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet"/>
+<style>
+  :root {
+    --fire:#e84d1c;--ember:#f5a623;--smoke:#1a1008;--ash:#2d2318;
+    --cream:#fdf6ee;--muted:#8a7560;--gold:#c9944a;--green:#3a7d44;
+    --red:#c0392b;--card-bg:#231a10;--border:rgba(201,148,74,0.2);
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{font-family:'DM Sans',sans-serif;background:var(--smoke);color:var(--cream);min-height:100vh;}
+  header{background:linear-gradient(135deg,#1a0d00,#2e1800,#1a0d00);border-bottom:2px solid var(--gold);padding:0 2rem;display:flex;align-items:center;justify-content:space-between;height:72px;position:sticky;top:0;z-index:100;box-shadow:0 4px 30px rgba(232,77,28,.2);}
+  header h1{font-family:'Playfair Display',serif;font-size:1.7rem;background:linear-gradient(90deg,var(--ember),var(--fire));-webkit-background-clip:text;-webkit-text-fill-color:transparent;}
+  header span{font-size:.8rem;color:var(--muted);}
+  nav{display:flex;background:var(--ash);border-bottom:1px solid var(--border);padding:0 2rem;overflow-x:auto;}
+  nav button{background:none;border:none;cursor:pointer;color:var(--muted);font-family:'DM Sans',sans-serif;font-size:.85rem;font-weight:500;padding:1rem 1.4rem;border-bottom:3px solid transparent;transition:all .2s;white-space:nowrap;}
+  nav button.active{color:var(--ember);border-bottom-color:var(--ember);}
+  nav button:hover:not(.active){color:var(--cream);}
+  main{padding:2rem;max-width:1100px;margin:0 auto;}
+  .tab-panel{display:none;}.tab-panel.active{display:block;animation:fadeIn .3s ease;}
+  @keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+  .card{background:var(--card-bg);border:1px solid var(--border);border-radius:12px;padding:1.5rem;margin-bottom:1.5rem;}
+  .card h2{font-family:'Playfair Display',serif;font-size:1.2rem;color:var(--ember);margin-bottom:1.2rem;}
+  .form-grid{display:grid;grid-template-columns:1fr 1fr;gap:1rem;}
+  label{display:block;font-size:.78rem;color:var(--muted);margin-bottom:.35rem;letter-spacing:.05em;text-transform:uppercase;}
+  input,select{width:100%;background:var(--ash);border:1px solid var(--border);color:var(--cream);font-family:'DM Sans',sans-serif;font-size:.95rem;padding:.65rem 1rem;border-radius:8px;outline:none;transition:border-color .2s;}
+  input:focus,select:focus{border-color:var(--ember);}
+  select option{background:var(--ash);}
+  input[type="date"]::-webkit-calendar-picker-indicator{filter:invert(.6);}
+  .item-row{display:grid;grid-template-columns:2fr 1fr 1fr 1fr auto;gap:.6rem;align-items:center;margin-bottom:.6rem;}
+  .btn{border:none;cursor:pointer;font-family:'DM Sans',sans-serif;font-weight:600;font-size:.85rem;border-radius:8px;padding:.65rem 1.2rem;transition:all .2s;}
+  .btn-primary{background:var(--fire);color:#fff;}.btn-primary:hover{background:#c94010;}
+  .btn-secondary{background:transparent;color:var(--ember);border:1px solid var(--ember);}.btn-secondary:hover{background:rgba(245,166,35,.1);}
+  .btn-danger{background:transparent;color:var(--red);border:1px solid var(--red);font-size:.8rem;padding:.4rem .7rem;}.btn-danger:hover{background:rgba(192,57,43,.15);}
+  .btn-sm{padding:.35rem .75rem;font-size:.78rem;}
+  .btn-green{background:var(--green);color:#fff;}.btn-green:hover{background:#2d6337;}
+  .total-bar{background:var(--ash);border:1px solid var(--border);border-radius:8px;padding:.8rem 1.2rem;display:flex;justify-content:space-between;align-items:center;margin-top:.5rem;}
+  .total-bar strong{font-size:1.2rem;color:var(--ember);}
+  .pay-methods{display:flex;gap:.8rem;flex-wrap:wrap;margin-top:.5rem;}
+  .pay-pill{padding:.5rem 1rem;border-radius:20px;cursor:pointer;font-size:.85rem;font-weight:600;border:2px solid var(--border);background:var(--ash);color:var(--muted);transition:all .2s;}
+  .pay-pill.selected{border-color:var(--ember);color:var(--ember);background:rgba(245,166,35,.08);}
+  .order-card{background:var(--ash);border:1px solid var(--border);border-radius:10px;padding:1.2rem;margin-bottom:1rem;transition:border-color .2s;}
+  .order-card:hover{border-color:var(--gold);}
+  .order-meta{display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:.5rem;}
+  .order-meta h3{font-size:1rem;color:var(--cream);}
+  .order-date{font-size:.82rem;color:var(--gold);font-weight:600;margin-top:.2rem;}
+  .badge{font-size:.72rem;font-weight:700;padding:.25rem .6rem;border-radius:20px;text-transform:uppercase;letter-spacing:.05em;}
+  .badge-pending{background:rgba(245,166,35,.15);color:var(--ember);border:1px solid var(--ember);}
+  .badge-paid{background:rgba(58,125,68,.2);color:#6fcf7a;border:1px solid #3a7d44;}
+  .badge-cancelled{background:rgba(192,57,43,.15);color:#e57373;border:1px solid var(--red);}
+  .order-items{margin:.7rem 0;font-size:.88rem;color:var(--muted);}
+  .order-items span{color:var(--cream);}
+  .order-actions{display:flex;gap:.5rem;flex-wrap:wrap;margin-top:.8rem;}
+  .stats-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:1rem;margin-bottom:1.5rem;}
+  .stat-box{background:var(--ash);border:1px solid var(--border);border-radius:10px;padding:1.2rem;text-align:center;}
+  .stat-box .num{font-family:'Playfair Display',serif;font-size:2rem;color:var(--ember);}
+  .stat-box .lbl{font-size:.75rem;color:var(--muted);text-transform:uppercase;letter-spacing:.07em;margin-top:.25rem;}
+  /* PERIOD */
+  .period-bar{display:flex;gap:1rem;flex-wrap:wrap;align-items:flex-end;background:var(--card-bg);border:1px solid var(--border);border-radius:12px;padding:1.2rem;margin-bottom:1.5rem;}
+  .period-bar > div{display:flex;flex-direction:column;}
+  .period-bar input{width:150px;}
+  .period-shortcuts{display:flex;gap:.5rem;flex-wrap:wrap;margin-top:1.6rem;}
+  .shortcut{padding:.4rem .9rem;border-radius:20px;font-size:.78rem;font-weight:600;cursor:pointer;border:1px solid var(--border);background:transparent;color:var(--muted);transition:all .2s;font-family:'DM Sans',sans-serif;}
+  .shortcut.active,.shortcut:hover{border-color:var(--ember);color:var(--ember);}
+  /* CHARTS */
+  .month-row{margin-bottom:1.4rem;}
+  .month-title{font-size:.82rem;color:var(--gold);font-weight:700;margin-bottom:.5rem;letter-spacing:.04em;text-transform:uppercase;}
+  .bar-container{margin:.25rem 0;}
+  .bar-label{display:flex;justify-content:space-between;font-size:.8rem;margin-bottom:.2rem;}
+  .bar-track{background:var(--smoke);border-radius:4px;height:24px;overflow:hidden;}
+  .bar-fill{height:100%;border-radius:4px;transition:width .7s ease;display:flex;align-items:center;padding:0 .8rem;font-size:.78rem;font-weight:700;min-width:0;}
+  .bar-meat{background:linear-gradient(90deg,var(--fire),#c94010);}
+  .bar-chicken{background:linear-gradient(90deg,var(--ember),#d48a1a);}
+  /* HISTORY */
+  .history-row{background:var(--ash);border-left:3px solid var(--border);padding:.8rem 1rem;margin-bottom:.6rem;border-radius:0 8px 8px 0;font-size:.88rem;}
+  .history-row.paid{border-left-color:var(--green);}
+  .history-row.cancelled{border-left-color:var(--red);}
+  .history-name{font-weight:600;color:var(--cream);}
+  .history-detail{color:var(--muted);margin-top:.2rem;}
+  .search-bar{position:relative;margin-bottom:1.2rem;}
+  .search-bar input{padding-left:2.5rem;}
+  .search-bar::before{content:'🔍';position:absolute;left:.9rem;top:50%;transform:translateY(-50%);font-size:.85rem;}
+  .modal-backdrop{display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:200;align-items:center;justify-content:center;}
+  .modal-backdrop.open{display:flex;}
+  .modal{background:var(--card-bg);border:1px solid var(--gold);border-radius:14px;padding:2rem;width:90%;max-width:600px;max-height:90vh;overflow-y:auto;animation:fadeIn .25s ease;}
+  .modal h2{font-family:'Playfair Display',serif;color:var(--ember);margin-bottom:1.2rem;}
+  .modal-actions{display:flex;gap:.8rem;justify-content:flex-end;margin-top:1.5rem;}
+  .empty{text-align:center;color:var(--muted);padding:3rem 1rem;font-size:.95rem;}
+  .empty span{display:block;font-size:2.5rem;margin-bottom:.5rem;}
+  .toast{position:fixed;bottom:2rem;right:2rem;background:var(--ash);border:1px solid var(--gold);color:var(--cream);padding:.9rem 1.4rem;border-radius:10px;font-size:.9rem;z-index:999;animation:fadeIn .3s ease;box-shadow:0 4px 20px rgba(0,0,0,.4);}
+  @media(max-width:640px){.form-grid{grid-template-columns:1fr;}.item-row{grid-template-columns:1fr 1fr;}.item-row .item-type{grid-column:1/-1;}main{padding:1rem;}.period-bar{flex-direction:column;}.period-bar input{width:100%;}}
+</style>
+</head>
+<body>
+
+<header>
+  <div style="display:flex;flex-direction:column;line-height:1.1;">
+    <h1>🥩 Biazzi</h1>
+    <span style="font-family:'DM Sans',sans-serif;font-size:.7rem;color:var(--gold);letter-spacing:.15em;text-transform:uppercase;-webkit-text-fill-color:var(--gold);">Empório da Carne</span>
+  </div>
+  <span id="order-count-badge">carregando...</span>
+</header>
+
+<nav>
+  <button class="active" onclick="showTab('new-order',this)">➕ Novo Pedido</button>
+  <button onclick="showTab('orders',this)">📋 Pedidos</button>
+  <button onclick="showTab('history',this)">📜 Histórico</button>
+  <button onclick="showTab('stats',this)">📊 Estatísticas</button>
+</nav>
+
+<main>
+  <!-- NOVO PEDIDO -->
+  <div id="new-order" class="tab-panel active">
+    <div class="card">
+      <h2>Dados do Cliente</h2>
+      <div class="form-grid">
+        <div><label>Nome *</label><input id="f-name" type="text" placeholder="Ex: João Silva"/></div>
+        <div><label>Telefone</label><input id="f-phone" type="tel" placeholder="(11) 99999-9999"/></div>
+      </div>
+      <div style="margin-top:1rem;max-width:220px;">
+        <label>📅 Data do Pedido</label>
+        <input id="f-date" type="date"/>
+      </div>
+    </div>
+    <div class="card">
+      <h2>Itens do Pedido</h2>
+      <div id="items-list"></div>
+      <button class="btn btn-secondary btn-sm" onclick="addItemRow('items-list','calcTotal')">+ Adicionar Item</button>
+      <div class="total-bar"><span>Total</span><strong id="order-total">R$ 0,00</strong></div>
+    </div>
+    <div class="card">
+      <h2>Pagamento</h2>
+      <label>Forma de Pagamento</label>
+      <div class="pay-methods">
+        <div class="pay-pill" onclick="selectPay(this,'cash')">💵 Dinheiro</div>
+        <div class="pay-pill" onclick="selectPay(this,'card')">💳 Cartão</div>
+        <div class="pay-pill" onclick="selectPay(this,'pix')">⚡ PIX</div>
+      </div>
+      <div id="pay-extra" style="margin-top:1rem;display:none;">
+        <label>Valor Recebido (R$)</label>
+        <input id="f-paid" type="number" step="0.01" placeholder="0.00" oninput="calcChange()"/>
+        <div id="change-info" style="margin-top:.5rem;font-size:.9rem;color:var(--muted);"></div>
+      </div>
+    </div>
+    <div style="display:flex;gap:1rem;flex-wrap:wrap;">
+      <button class="btn btn-primary" onclick="submitOrder()">✔ Registrar Pedido</button>
+      <button class="btn btn-secondary" onclick="clearForm()">Limpar</button>
+    </div>
+  </div>
+
+  <!-- PEDIDOS -->
+  <div id="orders" class="tab-panel">
+    <div class="search-bar"><input type="text" placeholder="Buscar por nome ou telefone..." oninput="renderOrders(this.value)"/></div>
+    <div id="orders-list"></div>
+  </div>
+
+  <!-- HISTÓRICO -->
+  <div id="history" class="tab-panel">
+    <div class="search-bar"><input type="text" placeholder="Buscar histórico de cliente..." oninput="renderHistory(this.value)"/></div>
+    <div id="history-list"></div>
+  </div>
+
+  <!-- STATS -->
+  <div id="stats" class="tab-panel">
+    <div class="period-bar">
+      <div><label>De</label><input type="date" id="s-from" onchange="applyFilter()"/></div>
+      <div><label>Até</label><input type="date" id="s-to" onchange="applyFilter()"/></div>
+      <div>
+        <div class="period-shortcuts">
+          <button class="shortcut active" onclick="setShortcut('month',this)">Este mês</button>
+          <button class="shortcut" onclick="setShortcut('last3',this)">3 meses</button>
+          <button class="shortcut" onclick="setShortcut('year',this)">Este ano</button>
+          <button class="shortcut" onclick="setShortcut('all',this)">Tudo</button>
+        </div>
+      </div>
+    </div>
+    <div class="stats-grid" id="stats-boxes"></div>
+    <div class="card"><h2>🍖 Carne vs Frango — por mês</h2><div id="stats-monthly"></div></div>
+    <div class="card"><h2>Total no Período</h2><div id="stats-chart"></div></div>
+    <div class="card"><h2>Receita por Pagamento</h2><div id="stats-payment"></div></div>
+
+    <!-- WHATSAPP -->
+    <div class="card">
+      <h2>📲 Resumo por WhatsApp</h2>
+      <p style="color:var(--muted);font-size:.88rem;margin-bottom:1rem;">Envio automático todo domingo às 20h. Você também pode enviar manualmente ou visualizar o resumo do dia.</p>
+      <div style="display:flex;gap:.8rem;flex-wrap:wrap;align-items:center;">
+        <button class="btn btn-green" onclick="sendWhatsAppNow()">📤 Enviar agora</button>
+        <button class="btn btn-secondary" onclick="previewWhatsApp()">👁 Ver prévia</button>
+      </div>
+      <div id="whatsapp-preview" style="display:none;margin-top:1rem;background:var(--ash);border:1px solid var(--border);border-radius:8px;padding:1rem;font-size:.85rem;white-space:pre-line;line-height:1.6;color:var(--cream);"></div>
+    </div>
+  </div>
+</main>
+
+<!-- MODAL EDITAR -->
+<div class="modal-backdrop" id="edit-modal">
+  <div class="modal">
+    <h2>Editar Pedido</h2>
+    <div class="form-grid">
+      <div><label>Nome</label><input id="e-name" type="text"/></div>
+      <div><label>Telefone</label><input id="e-phone" type="tel"/></div>
+    </div>
+    <div style="margin-top:1rem;max-width:220px;">
+      <label>📅 Data do Pedido</label>
+      <input id="e-date" type="date"/>
+    </div>
+    <div id="e-items-list" style="margin:1rem 0;"></div>
+    <button class="btn btn-secondary btn-sm" onclick="addItemRow('e-items-list','calcEditTotal')">+ Item</button>
+    <div class="total-bar" style="margin-top:.5rem;"><span>Total</span><strong id="e-total">R$ 0,00</strong></div>
+    <div style="margin-top:1rem;">
+      <label>Pagamento</label>
+      <select id="e-payment">
+        <option value="cash">Dinheiro</option>
+        <option value="card">Cartão</option>
+        <option value="pix">PIX</option>
+      </select>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-secondary" onclick="closeModal()">Cancelar</button>
+      <button class="btn btn-primary" onclick="saveEdit()">Salvar</button>
+    </div>
+  </div>
+</div>
+
 <script>
 const API = '/api';
 
-
-/* =====================================================
-   PRODUCTS (OBRIGATÓRIO — estava faltando ❌)
-===================================================== */
-
-const PRODUCTS = [
-  { val:'meat',    label:'Carne',  price:60 },
-  { val:'ribs',    label:'Costela',price:55 },
-  { val:'chicken', label:'Frango', price:25 }
-];
-
-
-/* =====================================================
-   SAFE NUMBER HELPERS
-===================================================== */
-
-function toNumber(v){
-  const n = Number(v);
-  return Number.isFinite(n) ? n : 0;
-}
-
-function fixed(v,d=2){
-  return toNumber(v).toFixed(d);
-}
-
-function fmt(v){
-  return 'R$ ' + fixed(v,2).replace('.',',');
-}
-
-
-/* =====================================================
-   API
-===================================================== */
-
-async function api(path, method='GET', body=null){
-  const opts = {
-    method,
-    headers:{'Content-Type':'application/json'}
-  };
-
-  if(body) opts.body = JSON.stringify(body);
-
+async function api(path, method='GET', body=null) {
+  const opts = { method, headers: {'Content-Type':'application/json'} };
+  if (body) opts.body = JSON.stringify(body);
   const res = await fetch(API + path, opts);
-
-  if(!res.ok){
-    const e = await res.json().catch(()=>({}));
-    throw new Error(e.error || res.statusText);
-  }
-
+  if (!res.ok) { const e = await res.json().catch(()=>({})); throw new Error(e.error||res.statusText); }
   return res.json();
 }
 
+let orders=[], history=[], editId=null, selectedPayMethod='';
 
-/* =====================================================
-   GLOBAL STATE
-===================================================== */
+async function init() {
+  setTodayDate();
+  setShortcut('month', document.querySelector('.shortcut.active'));
+  addItemRow('items-list','calcTotal');
+  await Promise.all([loadOrders(), loadHistory()]);
+}
 
-let orders = [];
-let history = [];
-let editId = null;
+function isoToday(){ return new Date().toISOString().split('T')[0]; }
+function setTodayDate(){ document.getElementById('f-date').value = isoToday(); }
+function fmtDate(iso){
+  if(!iso) return '—';
+  const d = new Date((iso.length===10 ? iso+'T12:00:00' : iso));
+  return d.toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit',year:'numeric'});
+}
+function getOrderDate(o){ return (o.order_date||o.created_at||'').split(' ')[0].split('T')[0]; }
 
+async function loadOrders(){ orders = await api('/orders'); renderOrders(); updateBadge(); }
+async function loadHistory(){ history = await api('/history'); renderHistory(); }
 
-/* =====================================================
-   ITEM ROW (ESTAVA FALTANDO ❌)
-===================================================== */
+function showTab(id, btn) {
+  document.querySelectorAll('.tab-panel').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('nav button').forEach(b=>b.classList.remove('active'));
+  document.getElementById(id).classList.add('active'); btn.classList.add('active');
+  if(id==='orders') loadOrders();
+  if(id==='history') loadHistory();
+  if(id==='stats') renderStats();
+}
 
-function addItemRow(containerId, fn){
-
-  const container = document.getElementById(containerId);
-
-  const row = document.createElement('div');
-  row.className = 'item-row';
-
-  row.innerHTML = `
-    <select class="item-type">
+const PRODUCTS=[
+  {label:'🥩 Carne (kg)',val:'meat',price:49.90},
+  {label:'🍗 Frango Assado (un)',val:'chicken',price:35.00},
+  {label:'🥩 Costela (kg)',val:'ribs',price:59.90},
+  {label:'Outro',val:'other',price:0},
+];
+function addItemRow(cid, fn){
+  const c=document.getElementById(cid);
+  const row=document.createElement('div'); row.className='item-row';
+  row.innerHTML=`
+    <select class="item-type" onchange="autoPrice(this,'${fn}')">
       ${PRODUCTS.map(p=>`<option value="${p.val}">${p.label}</option>`).join('')}
     </select>
+    <input type="number" class="item-qty" placeholder="Qtd" min="0.1" step="0.1" value="1" oninput="${fn}()"/>
+    <input type="number" class="item-price" placeholder="Preço" step="0.01" oninput="${fn}()"/>
+    <input type="text" class="item-subtotal" readonly style="color:var(--ember);"/>
+    <button class="btn btn-danger btn-sm" onclick="removeRow(this,'${fn}')">✕</button>`;
+  c.appendChild(row); autoPrice(row.querySelector('select'),fn);
+}
+function removeRow(btn,fn){btn.closest('.item-row').remove();fn==='calcTotal'?calcTotal():calcEditTotal();}
+function autoPrice(sel,fn){
+  const p=PRODUCTS.find(x=>x.val===sel.value);
+  if(p) sel.closest('.item-row').querySelector('.item-price').value=p.price.toFixed(2);
+  fn==='calcTotal'?calcTotal():calcEditTotal();
+}
+function calcSubtotals(cid){
+  let t=0;
+  document.querySelectorAll(`#${cid} .item-row`).forEach(row=>{
+    const qty=parseFloat(row.querySelector('.item-qty').value)||0;
+    const price=parseFloat(row.querySelector('.item-price').value)||0;
+    const sub=qty*price; row.querySelector('.item-subtotal').value=fmt(sub); t+=sub;
+  }); return t;
+}
+function calcTotal(){document.getElementById('order-total').textContent=fmt(calcSubtotals('items-list'));calcChange();}
+function calcEditTotal(){document.getElementById('e-total').textContent=fmt(calcSubtotals('e-items-list'));}
+function fmt(n){return'R$ '+parseFloat(n||0).toFixed(2).replace('.',',');}
+function collectItems(cid){
+  const items=[];
+  document.querySelectorAll(`#${cid} .item-row`).forEach(row=>{
+    const qty=parseFloat(row.querySelector('.item-qty').value)||0;
+    const price=parseFloat(row.querySelector('.item-price').value)||0;
+    if(qty>0) items.push({type:row.querySelector('.item-type').value,qty,price,subtotal:parseFloat((qty*price).toFixed(2))});
+  }); return items;
+}
 
-    <input class="item-qty" type="number" step="0.1" value="1">
-    <input class="item-price" type="number" step="0.01" value="0">
-    <input class="item-subtotal" readonly>
+function selectPay(el,method){
+  document.querySelectorAll('.pay-pill').forEach(p=>p.classList.remove('selected'));
+  el.classList.add('selected'); selectedPayMethod=method;
+  document.getElementById('pay-extra').style.display=method==='cash'?'block':'none'; calcChange();
+}
+function calcChange(){
+  if(selectedPayMethod!=='cash')return;
+  const total=parseFloat(document.getElementById('order-total').textContent.replace('R$ ','').replace(',','.'))||0;
+  const paid=parseFloat(document.getElementById('f-paid').value)||0;
+  const info=document.getElementById('change-info');
+  if(paid>0){const c=paid-total;info.textContent=c>=0?`Troco: ${fmt(c)}`:`⚠ Falta ${fmt(Math.abs(c))}`;info.style.color=c>=0?'#6fcf7a':'#e57373';}
+  else info.textContent='';
+}
+
+async function submitOrder(){
+  const name=document.getElementById('f-name').value.trim();
+  if(!name){toast('⚠ Nome do cliente obrigatório');return;}
+  const items=collectItems('items-list');
+  if(!items.length){toast('⚠ Adicione pelo menos um item');return;}
+  if(!selectedPayMethod){toast('⚠ Selecione forma de pagamento');return;}
+  const order_date=document.getElementById('f-date').value||isoToday();
+  try{
+    await api('/orders','POST',{name,phone:document.getElementById('f-phone').value.trim(),items,payment:selectedPayMethod,order_date});
+    toast(`✅ Pedido de ${name} registrado!`);clearForm();await loadOrders();
+  }catch(e){toast('❌ Erro: '+e.message);}
+}
+function clearForm(){
+  ['f-name','f-phone','f-paid'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('change-info').textContent='';
+  document.getElementById('pay-extra').style.display='none';
+  document.querySelectorAll('.pay-pill').forEach(p=>p.classList.remove('selected'));
+  selectedPayMethod=''; setTodayDate();
+  document.getElementById('items-list').innerHTML='';
+  addItemRow('items-list','calcTotal');
+}
+
+function renderOrders(search=''){
+  const c=document.getElementById('orders-list');
+  const q=search.toLowerCase();
+  const f=orders.filter(o=>!q||o.name.toLowerCase().includes(q)||(o.phone||'').includes(q));
+  if(!f.length){c.innerHTML=`<div class="empty"><span>📋</span>Nenhum pedido encontrado.</div>`;return;}
+  c.innerHTML=f.map(o=>`
+    <div class="order-card">
+      <div class="order-meta">
+        <div>
+          <h3>${o.name}</h3>
+          <div class="order-date">📅 ${fmtDate(o.order_date||getOrderDate(o))}</div>
+          <div style="font-size:.76rem;color:var(--muted);margin-top:.1rem;">${o.phone||'Sem telefone'}</div>
+        </div>
+        <div style="display:flex;gap:.5rem;align-items:center;flex-wrap:wrap;">
+          <span class="badge badge-${o.status}">${statusLabel(o.status)}</span>
+          <strong style="color:var(--ember)">${fmt(o.total)}</strong>
+        </div>
+      </div>
+      <div class="order-items">
+        ${(o.items||[]).map(i=>`<div>• ${prodLabel(i.type)} × ${i.qty} = <span>${fmt(i.subtotal)}</span></div>`).join('')}
+        <div style="margin-top:.4rem;font-size:.8rem;">Pagamento: <span>${payLabel(o.payment)}</span></div>
+      </div>
+      <div class="order-actions">
+        ${o.status==='pending'?`
+          <button class="btn btn-green btn-sm" onclick="markPaid(${o.id})">✔ Pago</button>
+          <button class="btn btn-secondary btn-sm" onclick="openEdit(${o.id})">✏ Editar</button>
+          <button class="btn btn-danger btn-sm" onclick="cancelOrder(${o.id})">✕ Cancelar</button>
+        `:`<button class="btn btn-danger btn-sm" onclick="deleteOrder(${o.id})">🗑 Remover</button>`}
+      </div>
+    </div>`).join('');
+}
+function prodLabel(v){return{'meat':'🥩 Carne','chicken':'🍗 Frango','ribs':'🥩 Costela','other':'Outro'}[v]||v;}
+function payLabel(v){return{'cash':'💵 Dinheiro','card':'💳 Cartão','pix':'⚡ PIX'}[v]||v;}
+function statusLabel(v){return{'pending':'Pendente','paid':'Pago','cancelled':'Cancelado'}[v]||v;}
+
+async function markPaid(id){try{await api(`/orders/${id}`,'PUT',{status:'paid'});toast('✅ Pago!');await loadOrders();await loadHistory();}catch(e){toast('❌ '+e.message);}}
+async function cancelOrder(id){if(!confirm('Cancelar este pedido?'))return;try{await api(`/orders/${id}`,'PUT',{status:'cancelled'});toast('Cancelado.');await loadOrders();await loadHistory();}catch(e){toast('❌ '+e.message);}}
+async function deleteOrder(id){if(!confirm('Remover permanentemente?'))return;try{await api(`/orders/${id}`,'DELETE');toast('🗑 Removido.');await loadOrders();}catch(e){toast('❌ '+e.message);}}
+
+function openEdit(id){
+  editId=id; const o=orders.find(x=>x.id===id);
+  document.getElementById('e-name').value=o.name;
+  document.getElementById('e-phone').value=o.phone||'';
+  document.getElementById('e-payment').value=o.payment;
+  document.getElementById('e-date').value=getOrderDate(o)||isoToday();
+  const c=document.getElementById('e-items-list'); c.innerHTML='';
+  (o.items||[]).forEach(item=>{
+    addItemRow('e-items-list','calcEditTotal');
+    const rows=c.querySelectorAll('.item-row'); const row=rows[rows.length-1];
+    row.querySelector('.item-type').value=item.type;
+    row.querySelector('.item-qty').value=item.qty;
+    row.querySelector('.item-price').value=parseFloat(item.price||0).toFixed(2);
+    row.querySelector('.item-subtotal').value=fmt(item.subtotal);
+  });
+  calcEditTotal(); document.getElementById('edit-modal').classList.add('open');
+}
+function closeModal(){document.getElementById('edit-modal').classList.remove('open');}
+async function saveEdit(){
+  const o=orders.find(x=>x.id===editId); if(!o)return;
+  const items=collectItems('e-items-list');
+  try{
+    await api(`/orders/${editId}`,'PUT',{
+      name:document.getElementById('e-name').value.trim()||o.name,
+      phone:document.getElementById('e-phone').value.trim(),
+      payment:document.getElementById('e-payment').value,
+      order_date:document.getElementById('e-date').value,
+      items
+    });
+    toast('✅ Atualizado!'); closeModal(); await loadOrders();
+  }catch(e){toast('❌ '+e.message);}
+}
+
+function renderHistory(search=''){
+  const c=document.getElementById('history-list');
+  const q=search.toLowerCase();
+  const h=history.filter(x=>!q||x.name.toLowerCase().includes(q)||(x.phone||'').includes(q));
+  if(!h.length){c.innerHTML=`<div class="empty"><span>📜</span>Sem histórico ainda.</div>`;return;}
+  c.innerHTML=h.map(o=>`
+    <div class="history-row ${o.status}">
+      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:.3rem;">
+        <span class="history-name">${o.name}</span>
+        <span class="badge badge-${o.status}">${statusLabel(o.status)}</span>
+      </div>
+      <div class="history-detail">
+        📅 <strong style="color:var(--gold)">${fmtDate(o.order_date||getOrderDate(o))}</strong>
+        · ${o.phone||'Sem tel'} · Resolvido: ${o.resolved_at||'-'}
+      </div>
+      <div class="history-detail" style="margin-top:.3rem;">
+        ${(o.items||[]).map(i=>`${prodLabel(i.type)} ×${i.qty}`).join(', ')} ·
+        <strong style="color:var(--ember)">${fmt(o.total)}</strong> · ${payLabel(o.payment)}
+      </div>
+    </div>`).join('');
+}
+
+// ─── PERIOD SHORTCUTS ─────────────────────────────────────────────────────────
+function setShortcut(key,btn){
+  document.querySelectorAll('.shortcut').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  const now=new Date(), y=now.getFullYear(), m=now.getMonth();
+  let from, to=isoToday();
+  if(key==='month') from=`${y}-${String(m+1).padStart(2,'0')}-01`;
+  else if(key==='last3'){ const d=new Date(y,m-2,1); from=d.toISOString().split('T')[0]; }
+  else if(key==='year') from=`${y}-01-01`;
+  else { from='2000-01-01'; to='2099-12-31'; }
+  document.getElementById('s-from').value=from;
+  document.getElementById('s-to').value=to;
+  renderStats();
+}
+function applyFilter(){
+  document.querySelectorAll('.shortcut').forEach(b=>b.classList.remove('active'));
+  renderStats();
+}
+
+// ─── STATS ───────────────────────────────────────────────────────────────────
+function renderStats(){
+  const from=document.getElementById('s-from')?.value||'2000-01-01';
+  const to=document.getElementById('s-to')?.value||'2099-12-31';
+
+  const inRange=orders.filter(o=>{ const d=getOrderDate(o); return d>=from&&d<=to&&o.status!=='cancelled'; });
+  const cancelledInRange=orders.filter(o=>{ const d=getOrderDate(o); return d>=from&&d<=to&&o.status==='cancelled'; });
+  const paidInRange=inRange.filter(o=>o.status==='paid');
+  const pendingInRange=inRange.filter(o=>o.status==='pending');
+  const revenue=paidInRange.reduce((s,o)=>s+parseFloat(o.total||0),0);
+
+  // All items from non-cancelled orders in range
+  const allItems=[];
+  inRange.forEach(o=>(o.items||[]).forEach(i=>allItems.push({...i,qty:parseFloat(i.qty||0),subtotal:parseFloat(i.subtotal||0),orderDate:getOrderDate(o)})));
+
+  const meatTotal=allItems.filter(i=>i.type==='meat'||i.type==='ribs').reduce((s,i)=>s+parseFloat(i.qty||0),0);
+  const chickenTotal=allItems.filter(i=>i.type==='chicken').reduce((s,i)=>s+parseFloat(i.qty||0),0);
+  const maxQ=Math.max(meatTotal,chickenTotal,1);
+
+  // Payment map
+  const payMap={};
+  paidInRange.forEach(o=>{ payMap[o.payment]=(payMap[o.payment]||0)+parseFloat(o.total||0); });
+
+  // Monthly breakdown
+  const monthMap={};
+  allItems.forEach(i=>{
+    const month=i.orderDate?.slice(0,7); if(!month) return;
+    if(!monthMap[month]) monthMap[month]={meat:0,chicken:0};
+    if(i.type==='meat'||i.type==='ribs') monthMap[month].meat+=i.qty;
+    if(i.type==='chicken') monthMap[month].chicken+=i.qty;
+  });
+  const months=Object.keys(monthMap).sort();
+  const maxM=months.length?Math.max(...months.map(m=>Math.max(monthMap[m].meat,monthMap[m].chicken)),1):1;
+
+  // Render summary boxes
+  document.getElementById('stats-boxes').innerHTML=`
+    <div class="stat-box"><div class="num">${inRange.length}</div><div class="lbl">Pedidos</div></div>
+    <div class="stat-box"><div class="num">${paidInRange.length}</div><div class="lbl">Pagos</div></div>
+    <div class="stat-box"><div class="num">${pendingInRange.length}</div><div class="lbl">Pendentes</div></div>
+    <div class="stat-box"><div class="num">${cancelledInRange.length}</div><div class="lbl">Cancelados</div></div>
+    <div class="stat-box"><div class="num" style="font-size:1.2rem">${fmt(revenue)}</div><div class="lbl">Receita</div></div>
+    <div class="stat-box"><div class="num">${meatTotal.toFixed(1)}<span style="font-size:.9rem">kg</span></div><div class="lbl">🥩 Carne</div></div>
+    <div class="stat-box"><div class="num">${chickenTotal.toFixed(0)}<span style="font-size:.9rem">un</span></div><div class="lbl">🍗 Frango</div></div>
   `;
 
-  container.appendChild(row);
+  // Monthly chart
+  document.getElementById('stats-monthly').innerHTML = months.length===0
+    ? `<div class="empty" style="padding:1.5rem"><span>📅</span>Sem pedidos no período selecionado.</div>`
+    : months.map(m=>{
+        const {meat,chicken}=monthMap[m];
+        const [y,mo]=m.split('-');
+        const lbl=new Date(Number(y),Number(mo)-1,1).toLocaleDateString('pt-BR',{month:'long',year:'numeric'});
+        return`<div class="month-row">
+          <div class="month-title">${lbl.charAt(0).toUpperCase()+lbl.slice(1)}</div>
+          <div class="bar-container">
+            <div class="bar-label"><span>🥩 Carne & Costela</span><span>${meat.toFixed(2)} kg</span></div>
+            <div class="bar-track"><div class="bar-fill bar-meat" style="width:${(meat/maxM*100).toFixed(1)}%">${meat>0?meat.toFixed(1):''}</div></div>
+          </div>
+          <div class="bar-container">
+            <div class="bar-label"><span>🍗 Frango Assado</span><span>${chicken.toFixed(0)} un</span></div>
+            <div class="bar-track"><div class="bar-fill bar-chicken" style="width:${(chicken/maxM*100).toFixed(1)}%">${chicken>0?chicken.toFixed(0):''}</div></div>
+          </div>
+        </div>`;
+      }).join('');
 
-  row.querySelector('.item-type').onchange = () => autoPrice(row.querySelector('.item-type'), fn);
-  row.querySelector('.item-qty').oninput = window[fn];
-  row.querySelector('.item-price').oninput = window[fn];
+  // Total chart
+  document.getElementById('stats-chart').innerHTML=`
+    <div class="bar-container">
+      <div class="bar-label"><span>🥩 Carne & Costela</span><span>${meatTotal.toFixed(2)} kg</span></div>
+      <div class="bar-track"><div class="bar-fill bar-meat" style="width:${(meatTotal/maxQ*100).toFixed(1)}%">${meatTotal.toFixed(1)}</div></div>
+    </div>
+    <div class="bar-container" style="margin-top:.8rem">
+      <div class="bar-label"><span>🍗 Frango Assado</span><span>${chickenTotal.toFixed(0)} un</span></div>
+      <div class="bar-track"><div class="bar-fill bar-chicken" style="width:${(chickenTotal/maxQ*100).toFixed(1)}%">${chickenTotal.toFixed(0)}</div></div>
+    </div>`;
+
+  // Payment
+  document.getElementById('stats-payment').innerHTML=['cash','card','pix'].map(p=>`
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:.6rem 0;border-bottom:1px solid var(--border);">
+      <span>${payLabel(p)}</span><strong style="color:var(--ember)">${fmt(payMap[p]||0)}</strong>
+    </div>`).join('');
 }
 
-
-/* =====================================================
-   PRICE AUTO FILL
-===================================================== */
-
-function autoPrice(sel, fn){
-  const p = PRODUCTS.find(x => x.val === sel.value);
-
-  if(p){
-    sel.closest('.item-row')
-       .querySelector('.item-price')
-       .value = fixed(p.price,2);
-  }
-
-  window[fn]();
+function updateBadge(){
+  const n=orders.filter(o=>o.status==='pending').length;
+  document.getElementById('order-count-badge').textContent=`${n} pedido${n!==1?'s':''} ativo${n!==1?'s':''}`;
+}
+let toastTimer;
+function toast(msg){
+  const old=document.querySelector('.toast');if(old)old.remove();
+  const el=document.createElement('div');el.className='toast';el.textContent=msg;
+  document.body.appendChild(el);clearTimeout(toastTimer);toastTimer=setTimeout(()=>el.remove(),3500);
 }
 
-
-/* =====================================================
-   SUBTOTAL CALC
-===================================================== */
-
-function calcSubtotals(containerId){
-
-  let total = 0;
-
-  document
-    .querySelectorAll(`#${containerId} .item-row`)
-    .forEach(row => {
-
-      const qty   = toNumber(row.querySelector('.item-qty').value);
-      const price = toNumber(row.querySelector('.item-price').value);
-
-      const sub = qty * price;
-
-      row.querySelector('.item-subtotal').value = fmt(sub);
-
-      total += sub;
-    });
-
-  return total;
+// ─── WHATSAPP ─────────────────────────────────────────────────────────────────
+async function sendWhatsAppNow(){
+  const date = document.getElementById('s-from')?.value || isoToday();
+  if(!confirm(`Enviar resumo do dia ${fmtDate(date)} via WhatsApp agora?`)) return;
+  try {
+    const r = await api('/whatsapp/send-summary','POST',{date});
+    if(r.success){ toast('✅ Resumo enviado no WhatsApp!'); }
+    else { toast('⚠ ' + (r.message||'Não foi possível enviar. Verifique as configurações.')); }
+    if(r.preview){ showWhatsAppPreview(r.preview); }
+  } catch(e){ toast('❌ Erro: '+e.message); }
+}
+async function previewWhatsApp(){
+  const date = document.getElementById('s-from')?.value || isoToday();
+  try {
+    const r = await api(`/whatsapp/preview?date=${date}`);
+    showWhatsAppPreview(r.preview);
+  } catch(e){ toast('❌ Erro: '+e.message); }
+}
+function showWhatsAppPreview(text){
+  const el = document.getElementById('whatsapp-preview');
+  // Convert *bold* markdown to styled spans for preview
+  el.innerHTML = text.replace(/\*(.*?)\*/g,'<strong style="color:var(--ember)">$1</strong>').replace(/_(.*?)_/g,'<em style="color:var(--muted)">$1</em>');
+  el.style.display = 'block';
 }
 
-function calcTotal(){
-  calcSubtotals('items-list');
-}
-
-function calcEditTotal(){
-  calcSubtotals('e-items-list');
-}
-
-
-/* =====================================================
-   STARTUP
-===================================================== */
-
-document.addEventListener('DOMContentLoaded', () => {
-  console.log('🚀 Front carregado com sucesso');
-});
+init();
 </script>
+</body>
+</html>
