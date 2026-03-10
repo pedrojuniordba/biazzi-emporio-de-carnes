@@ -93,6 +93,17 @@
   .empty span{display:block;font-size:2.5rem;margin-bottom:.5rem;}
   .toast{position:fixed;bottom:2rem;right:2rem;background:var(--ash);border:1px solid var(--gold);color:var(--cream);padding:.9rem 1.4rem;border-radius:10px;font-size:.9rem;z-index:999;animation:fadeIn .3s ease;box-shadow:0 4px 20px rgba(0,0,0,.4);}
 
+  /* ── ESTOQUE ── */
+  .stock-pill{font-size:.82rem;font-weight:600;color:var(--cream);background:var(--card-bg);border:1px solid var(--border);border-radius:20px;padding:.25rem .75rem;}
+  .stock-pill.low{border-color:#e57373;color:#e57373;}
+  .stock-pill.ok{border-color:#6fcf7a;color:#6fcf7a;}
+  .stock-pill.empty{border-color:var(--red);color:var(--red);background:rgba(192,57,43,.1);}
+  @media(max-width:640px){
+    #stock-bar{padding:.5rem 1rem;gap:.6rem;}
+    #stock-bar span:first-child{display:none;}
+    .stock-pill{font-size:.75rem;padding:.2rem .55rem;}
+  }
+
   /* ── LOGIN ── */
   #login-screen{display:none;position:fixed;inset:0;background:var(--smoke);z-index:500;align-items:center;justify-content:center;flex-direction:column;}
   #login-screen.visible{display:flex;}
@@ -221,6 +232,45 @@
   <button class="btn btn-secondary" style="font-size:.78rem;padding:.4rem .9rem;min-height:36px;" onclick="doLogout()">🔒 Sair</button>
 </header>
 
+<!-- ── BARRA DE ESTOQUE ─────────────────────────────────────────────────── -->
+<div id="stock-bar" style="background:var(--ash);border-bottom:1px solid var(--border);padding:.55rem 2rem;display:flex;align-items:center;gap:1.2rem;flex-wrap:wrap;">
+  <span style="font-size:.75rem;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;font-weight:600;">📦 Estoque disponível:</span>
+  <span id="stock-meat"  class="stock-pill">🥩 Carne: —</span>
+  <span id="stock-ribs"  class="stock-pill">🥩 Costela: —</span>
+  <span id="stock-chicken" class="stock-pill">🍗 Frango: —</span>
+  <button onclick="openStockModal()" style="margin-left:auto;background:transparent;border:1px solid var(--border);color:var(--muted);border-radius:6px;padding:.3rem .7rem;font-size:.75rem;cursor:pointer;font-family:'DM Sans',sans-serif;transition:all .2s;" onmouseover="this.style.borderColor='var(--ember)';this.style.color='var(--ember)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--muted)'">⚙ Definir estoque</button>
+</div>
+
+<!-- ── MODAL ESTOQUE ────────────────────────────────────────────────────── -->
+<div class="modal-backdrop" id="stock-modal">
+  <div class="modal" style="max-width:420px;">
+    <h2>📦 Definir Estoque</h2>
+    <p style="color:var(--muted);font-size:.88rem;margin-bottom:1.2rem;">Informe a quantidade disponível para a data de venda selecionada. O sistema irá abater automaticamente a cada reserva registrada.</p>
+    <div style="margin-bottom:1rem;">
+      <label>Data de venda</label>
+      <input type="date" id="stock-date"/>
+    </div>
+    <div class="form-grid" style="margin-bottom:1rem;">
+      <div>
+        <label>🥩 Carne (kg)</label>
+        <input type="number" id="stock-input-meat" min="0" step="0.5" placeholder="0"/>
+      </div>
+      <div>
+        <label>🥩 Costela (kg)</label>
+        <input type="number" id="stock-input-ribs" min="0" step="0.5" placeholder="0"/>
+      </div>
+    </div>
+    <div style="margin-bottom:1.5rem;">
+      <label>🍗 Frango Assado (unidades)</label>
+      <input type="number" id="stock-input-chicken" min="0" step="1" placeholder="0"/>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-secondary" onclick="closeStockModal()">Cancelar</button>
+      <button class="btn btn-primary" onclick="saveStock()">💾 Salvar Estoque</button>
+    </div>
+  </div>
+</div>
+
 <nav>
   <button class="active" onclick="showTab('new-order',this)">➕ Nova Reserva</button>
   <button onclick="showTab('orders',this)">📋 Reservas</button>
@@ -239,7 +289,7 @@
       </div>
       <div style="margin-top:1rem;max-width:220px;">
         <label>📅 Data do Pedido</label>
-        <input id="f-date" type="date"/>
+        <input id="f-date" type="date" onchange="onOrderDateChange(this.value)"/>
       </div>
     </div>
     <div class="card">
@@ -419,7 +469,7 @@ async function init() {
   setTodayDate();
   setShortcut('month', document.querySelector('.shortcut.active'));
   addItemRow('items-list','calcTotal');
-  await Promise.all([loadOrders(), loadHistory()]);
+  await Promise.all([loadOrders(), loadHistory(), loadStock(isoToday())]);
 }
 
 function isoToday(){ return new Date().toISOString().split('T')[0]; }
@@ -441,6 +491,65 @@ async function loadOrders(){
   updateBadge(); 
 }
 async function loadHistory(){ history = await api('/history'); renderHistory(); }
+
+// ─── ESTOQUE ─────────────────────────────────────────────────────────────────
+let currentStock = { meat: 0, ribs: 0, chicken: 0 };
+
+async function loadStock(date) {
+  try {
+    const d = date || isoToday();
+    currentStock = await api(`/stock/${d}`);
+    renderStockBar();
+  } catch(e) { console.error('Erro ao carregar estoque:', e); }
+}
+
+function renderStockBar() {
+  const s = currentStock;
+  const pill = (id, val, unit) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    const cls = val <= 0 ? 'empty' : val <= 2 ? 'low' : 'ok';
+    el.className = `stock-pill ${cls}`;
+    el.textContent = el.textContent.split(':')[0] + ': ' + (val <= 0 ? '❌ Esgotado' : val + unit);
+  };
+  pill('stock-meat',    parseFloat(s.meat||0),    ' kg');
+  pill('stock-ribs',    parseFloat(s.ribs||0),    ' kg');
+  pill('stock-chicken', parseFloat(s.chicken||0), ' un');
+}
+
+function openStockModal() {
+  // Pré-preenche com a data do pedido se estiver na aba Nova Reserva
+  const orderDate = document.getElementById('f-date')?.value || isoToday();
+  document.getElementById('stock-date').value = orderDate;
+  // Carrega estoque atual para aquela data
+  api(`/stock/${orderDate}`).then(s => {
+    document.getElementById('stock-input-meat').value    = parseFloat(s.meat||0);
+    document.getElementById('stock-input-ribs').value    = parseFloat(s.ribs||0);
+    document.getElementById('stock-input-chicken').value = parseFloat(s.chicken||0);
+  }).catch(()=>{});
+  document.getElementById('stock-modal').classList.add('open');
+}
+
+function closeStockModal() { document.getElementById('stock-modal').classList.remove('open'); }
+
+async function saveStock() {
+  const date    = document.getElementById('stock-date').value;
+  const meat    = parseFloat(document.getElementById('stock-input-meat').value)||0;
+  const ribs    = parseFloat(document.getElementById('stock-input-ribs').value)||0;
+  const chicken = parseFloat(document.getElementById('stock-input-chicken').value)||0;
+  if (!date) { toast('⚠ Selecione a data de venda.'); return; }
+  try {
+    await api('/stock', 'POST', { sale_date: date, meat, ribs, chicken });
+    toast('✅ Estoque atualizado!');
+    closeStockModal();
+    await loadStock(date);
+  } catch(e) { toast('❌ ' + e.message); }
+}
+
+// Atualiza barra de estoque quando a data do pedido muda
+function onOrderDateChange(val) {
+  if (val) loadStock(val);
+}
 
 function showTab(id, btn) {
   document.querySelectorAll('.tab-panel').forEach(p=>p.classList.remove('active'));
@@ -519,7 +628,10 @@ async function submitOrder(){
   const order_date=document.getElementById('f-date').value||isoToday();
   try{
     await api('/orders','POST',{name,phone:document.getElementById('f-phone').value.trim(),items,payment:selectedPayMethod,order_date});
-    toast(`✅ Pedido de ${name} registrado!`);clearForm();await loadOrders();
+    toast(`✅ Pedido de ${name} registrado!`);
+    clearForm();
+    await loadOrders();
+    await loadStock(order_date);
   }catch(e){toast('❌ Erro: '+e.message);}
 }
 function clearForm(){
@@ -581,9 +693,11 @@ async function markPaid(id){
 async function cancelOrder(id){
   if(!confirm('Cancelar este pedido?'))return;
   try{
+    const order = orders.find(o=>o.id===id);
     await api(`/orders/${id}`,'PUT',{status:'cancelled'});
-    toast('Pedido cancelado.');
+    toast('Pedido cancelado. Estoque devolvido.');
     await loadOrders(); await loadHistory(); renderStats();
+    if(order?.order_date) await loadStock(order.order_date);
   }catch(e){toast('❌ '+e.message);}
 }
 async function deleteOrder(id){

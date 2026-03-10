@@ -63,6 +63,15 @@ async function initDB() {
       created_at  TIMESTAMP NOT NULL,
       resolved_at TIMESTAMP NOT NULL DEFAULT NOW()
     );
+    CREATE TABLE IF NOT EXISTS stock (
+      id         SERIAL PRIMARY KEY,
+      sale_date  DATE    NOT NULL UNIQUE,
+      meat       NUMERIC NOT NULL DEFAULT 0,
+      ribs       NUMERIC NOT NULL DEFAULT 0,
+      chicken    NUMERIC NOT NULL DEFAULT 0,
+      created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+    );
   `);
   console.log('✅ Banco de dados inicializado.');
 }
@@ -127,6 +136,21 @@ app.post('/api/orders', async (req, res) => {
         [orderId, item.type, item.qty, item.price, item.subtotal]
       );
     }
+    // Abate do estoque ao registrar reserva
+    const meatQty    = items.filter(i=>i.type==='meat').reduce((s,i)=>s+parseFloat(i.qty),0);
+    const ribsQty    = items.filter(i=>i.type==='ribs').reduce((s,i)=>s+parseFloat(i.qty),0);
+    const chickenQty = items.filter(i=>i.type==='chicken').reduce((s,i)=>s+parseFloat(i.qty),0);
+    if (meatQty || ribsQty || chickenQty) {
+      await client.query(`
+        UPDATE stock SET
+          meat    = GREATEST(0, meat - $1),
+          ribs    = GREATEST(0, ribs - $2),
+          chicken = GREATEST(0, chicken - $3),
+          updated_at = NOW()
+        WHERE sale_date = $4`,
+        [meatQty, ribsQty, chickenQty, date]
+      );
+    }
     await client.query('COMMIT');
     res.status(201).json(await getOrderWithItems(orderId));
   } catch (e) {
@@ -178,6 +202,23 @@ app.put('/api/orders/:id', async (req, res) => {
          updated.payment, newStatus, JSON.stringify(updated.items),
          existing.created_at, updated.order_date]
       );
+      // Cancelamento: devolve ao estoque
+      if (newStatus === 'cancelled') {
+        const meatQty    = updated.items.filter(i=>i.type==='meat').reduce((s,i)=>s+parseFloat(i.qty),0);
+        const ribsQty    = updated.items.filter(i=>i.type==='ribs').reduce((s,i)=>s+parseFloat(i.qty),0);
+        const chickenQty = updated.items.filter(i=>i.type==='chicken').reduce((s,i)=>s+parseFloat(i.qty),0);
+        if (meatQty || ribsQty || chickenQty) {
+          await client.query(`
+            UPDATE stock SET
+              meat    = meat + $1,
+              ribs    = ribs + $2,
+              chicken = chicken + $3,
+              updated_at = NOW()
+            WHERE sale_date = $4`,
+            [meatQty, ribsQty, chickenQty, updated.order_date]
+          );
+        }
+      }
     }
 
     await client.query('COMMIT');
@@ -312,6 +353,35 @@ cron.schedule('0 0 20 * * 0', async () => {
   else console.log('[Cron] Sem pedidos hoje.');
 }, { timezone: process.env.TZ || 'America/Sao_Paulo' });
 
+// ─── ROUTES: STOCK ────────────────────────────────────────────────────────────
+// GET estoque por data
+app.get('/api/stock/:date', async (req, res) => {
+  try {
+    const { rows } = await pool.query('SELECT * FROM stock WHERE sale_date = $1', [req.params.date]);
+    if (!rows.length) return res.json({ sale_date: req.params.date, meat: 0, ribs: 0, chicken: 0 });
+    const r = rows[0];
+    res.json({ ...r, sale_date: r.sale_date?.toISOString().split('T')[0] });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// POST/PUT define estoque para uma data (upsert)
+app.post('/api/stock', async (req, res) => {
+  const { sale_date, meat, ribs, chicken } = req.body;
+  if (!sale_date) return res.status(400).json({ error: 'sale_date is required' });
+  try {
+    const { rows } = await pool.query(`
+      INSERT INTO stock (sale_date, meat, ribs, chicken)
+      VALUES ($1, $2, $3, $4)
+      ON CONFLICT (sale_date) DO UPDATE SET
+        meat = $2, ribs = $3, chicken = $4, updated_at = NOW()
+      RETURNING *`,
+      [sale_date, parseFloat(meat)||0, parseFloat(ribs)||0, parseFloat(chicken)||0]
+    );
+    const r = rows[0];
+    res.json({ ...r, sale_date: r.sale_date?.toISOString().split('T')[0] });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
 // ─── AUTH ─────────────────────────────────────────────────────────────────────
 const crypto = require('crypto');
 
@@ -379,6 +449,7 @@ app.use('/api/orders', requireAuth);
 app.use('/api/history', requireAuth);
 app.use('/api/stats', requireAuth);
 app.use('/api/whatsapp', requireAuth);
+app.use('/api/stock', requireAuth);
 
 // ─── START ────────────────────────────────────────────────────────────────────
 initDB().then(() => {
