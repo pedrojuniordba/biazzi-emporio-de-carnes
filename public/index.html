@@ -214,8 +214,9 @@
 <!-- ── TELA DE LOGIN ────────────────────────────────────────────────────── -->
 <div id="login-screen">
   <div class="login-box">
-    <h1>🥩 Biazzi</h1>
-    <div class="login-sub">Empório da Carne</div>
+    <div style="text-align:center;margin-bottom:1.5rem;">
+      <img src="/logo.jpg" alt="Biazzi Empório da Carne" style="height:100px;width:auto;border-radius:10px;"/>
+    </div>
     <label for="login-password">Senha de acesso</label>
     <input type="password" id="login-password" placeholder="Digite a senha..." onkeydown="if(event.key==='Enter')doLogin()"/>
     <button class="btn-login" onclick="doLogin()" id="login-btn">Entrar</button>
@@ -224,9 +225,8 @@
 </div>
 
 <header>
-  <div style="display:flex;flex-direction:column;line-height:1.1;">
-    <h1>🥩 Biazzi</h1>
-    <span style="font-family:'DM Sans',sans-serif;font-size:.7rem;color:var(--gold);letter-spacing:.15em;text-transform:uppercase;-webkit-text-fill-color:var(--gold);">Empório da Carne</span>
+  <div style="display:flex;align-items:center;">
+    <img src="/logo.jpg" alt="Biazzi Empório da Carne" style="height:52px;width:auto;border-radius:6px;"/>
   </div>
   <span id="order-count-badge">carregando...</span>
   <button class="btn btn-secondary" style="font-size:.78rem;padding:.4rem .9rem;min-height:36px;" onclick="doLogout()">🔒 Sair</button>
