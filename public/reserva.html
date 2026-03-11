@@ -1,0 +1,447 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Reserva — Biazzi Empório da Carne</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet"/>
+<style>
+  :root{
+    --fire:#e84d1c;--ember:#f5a623;--smoke:#1a1008;--ash:#2d2318;
+    --cream:#fdf6ee;--muted:#8a7560;--gold:#c9944a;--green:#3a7d44;
+    --card-bg:#231a10;--border:rgba(201,148,74,0.2);
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{font-family:'DM Sans',sans-serif;background:var(--smoke);color:var(--cream);min-height:100vh;}
+
+  /* HEADER */
+  header{background:linear-gradient(135deg,#1a0d00,#2e1800,#1a0d00);border-bottom:2px solid var(--gold);padding:0 1.5rem;display:flex;align-items:center;justify-content:space-between;height:68px;box-shadow:0 4px 30px rgba(232,77,28,.2);}
+  header h1{font-family:'Playfair Display',serif;font-size:1.5rem;background:linear-gradient(90deg,var(--ember),var(--fire));-webkit-background-clip:text;-webkit-text-fill-color:transparent;}
+  header .sub{font-size:.7rem;color:var(--gold);letter-spacing:.15em;text-transform:uppercase;}
+
+  /* HERO */
+  .hero{text-align:center;padding:2rem 1.5rem 1.5rem;background:linear-gradient(180deg,#2e1800 0%,var(--smoke) 100%);}
+  .hero .emoji{font-size:3rem;margin-bottom:.5rem;}
+  .hero h2{font-family:'Playfair Display',serif;font-size:1.6rem;color:var(--ember);margin-bottom:.4rem;}
+  .hero p{color:var(--muted);font-size:.9rem;max-width:400px;margin:0 auto;}
+
+  /* MAIN */
+  main{max-width:540px;margin:0 auto;padding:1rem 1rem 3rem;}
+
+  /* STEPS */
+  .step{display:none;}
+  .step.active{display:block;animation:fadeIn .3s ease;}
+  @keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+
+  /* CARD */
+  .card{background:var(--card-bg);border:1px solid var(--border);border-radius:12px;padding:1.5rem;margin-bottom:1rem;}
+  .card h3{font-family:'Playfair Display',serif;color:var(--ember);font-size:1.1rem;margin-bottom:1rem;}
+
+  /* DATE CARDS */
+  .date-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:.75rem;}
+  .date-card{background:var(--ash);border:2px solid var(--border);border-radius:10px;padding:1rem;cursor:pointer;transition:all .2s;text-align:center;}
+  .date-card:hover,.date-card.selected{border-color:var(--ember);background:rgba(245,166,35,.08);}
+  .date-card .day{font-family:'Playfair Display',serif;font-size:1.4rem;color:var(--ember);}
+  .date-card .weekday{font-size:.75rem;color:var(--gold);text-transform:uppercase;letter-spacing:.08em;margin:.1rem 0;}
+  .date-card .month{font-size:.8rem;color:var(--muted);}
+
+  /* STOCK PREVIEW */
+  .stock-preview{display:flex;gap:.5rem;flex-wrap:wrap;margin-bottom:1.2rem;}
+  .stock-tag{font-size:.82rem;font-weight:600;padding:.3rem .75rem;border-radius:20px;border:1px solid var(--border);color:var(--cream);background:var(--ash);}
+  .stock-tag.ok{border-color:#6fcf7a;color:#6fcf7a;}
+  .stock-tag.low{border-color:var(--ember);color:var(--ember);}
+  .stock-tag.empty{display:none;}
+
+  /* FORM */
+  label{display:block;font-size:.78rem;color:var(--muted);margin-bottom:.35rem;letter-spacing:.05em;text-transform:uppercase;}
+  input,select{width:100%;background:var(--ash);border:1px solid var(--border);color:var(--cream);font-family:'DM Sans',sans-serif;font-size:1rem;padding:.75rem 1rem;border-radius:8px;outline:none;transition:border-color .2s;margin-bottom:1rem;}
+  input:focus,select:focus{border-color:var(--ember);}
+  select option{background:var(--ash);}
+
+  /* ITEM ROW */
+  .item-section{margin-bottom:1.2rem;}
+  .item-section h4{font-size:.85rem;color:var(--gold);font-weight:600;margin-bottom:.6rem;text-transform:uppercase;letter-spacing:.06em;}
+  .qty-row{display:flex;align-items:center;gap:.75rem;background:var(--ash);border:1px solid var(--border);border-radius:8px;padding:.65rem 1rem;margin-bottom:.5rem;}
+  .qty-row .label{flex:1;font-size:.95rem;}
+  .qty-row .label small{display:block;font-size:.75rem;color:var(--muted);}
+  .qty-ctrl{display:flex;align-items:center;gap:.5rem;}
+  .qty-btn{width:32px;height:32px;border-radius:50%;border:1px solid var(--border);background:var(--card-bg);color:var(--cream);font-size:1.1rem;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .2s;flex-shrink:0;}
+  .qty-btn:hover{border-color:var(--ember);color:var(--ember);}
+  .qty-val{min-width:36px;text-align:center;font-weight:600;font-size:1rem;color:var(--ember);}
+  .avail-hint{font-size:.75rem;color:var(--muted);text-align:right;margin-top:-.3rem;margin-bottom:.5rem;}
+
+  /* TOTALS */
+  .total-bar{background:var(--ash);border:1px solid var(--border);border-radius:8px;padding:.8rem 1.2rem;display:flex;justify-content:space-between;align-items:center;margin-top:.5rem;}
+  .total-bar strong{font-size:1.2rem;color:var(--ember);}
+
+  /* BUTTONS */
+  .btn{border:none;cursor:pointer;font-family:'DM Sans',sans-serif;font-weight:600;font-size:.95rem;border-radius:8px;padding:.75rem 1.4rem;transition:all .2s;min-height:48px;display:inline-flex;align-items:center;justify-content:center;gap:.4rem;}
+  .btn-primary{background:var(--fire);color:#fff;width:100%;}
+  .btn-primary:hover{background:#c94010;}
+  .btn-primary:disabled{opacity:.6;cursor:not-allowed;}
+  .btn-secondary{background:transparent;color:var(--muted);border:1px solid var(--border);width:100%;margin-top:.5rem;}
+  .btn-secondary:hover{border-color:var(--ember);color:var(--ember);}
+
+  /* SUCCESS */
+  .success-box{text-align:center;padding:2rem 1rem;}
+  .success-box .icon{font-size:4rem;margin-bottom:1rem;}
+  .success-box h2{font-family:'Playfair Display',serif;color:#6fcf7a;font-size:1.6rem;margin-bottom:.75rem;}
+  .success-box p{color:var(--muted);font-size:.95rem;line-height:1.6;margin-bottom:.5rem;}
+  .success-box .order-summary{background:var(--ash);border:1px solid var(--border);border-radius:10px;padding:1.2rem;margin:1.2rem 0;text-align:left;}
+  .success-box .order-summary div{font-size:.9rem;color:var(--cream);padding:.3rem 0;border-bottom:1px solid var(--border);}
+  .success-box .order-summary div:last-child{border-bottom:none;}
+  .whatsapp-note{background:rgba(58,125,68,.15);border:1px solid #3a7d44;border-radius:8px;padding:.8rem 1rem;color:#6fcf7a;font-size:.85rem;margin-top:1rem;}
+
+  /* EMPTY / ERROR */
+  .empty-state{text-align:center;padding:2.5rem 1rem;color:var(--muted);}
+  .empty-state .icon{font-size:2.5rem;margin-bottom:.75rem;}
+  .error-msg{color:#e57373;font-size:.85rem;margin-top:.5rem;display:none;}
+  .error-msg.visible{display:block;}
+
+  /* PROGRESS */
+  .progress{display:flex;gap:.4rem;margin-bottom:1.5rem;justify-content:center;}
+  .progress-dot{width:8px;height:8px;border-radius:50%;background:var(--border);transition:all .3s;}
+  .progress-dot.active{background:var(--ember);transform:scale(1.3);}
+  .progress-dot.done{background:var(--green);}
+
+  /* MOBILE */
+  @media(max-width:480px){
+    header h1{font-size:1.2rem;}
+    .hero h2{font-size:1.3rem;}
+    .date-grid{grid-template-columns:repeat(2,1fr);}
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <h1>🥩 Biazzi</h1>
+    <div class="sub">Empório da Carne</div>
+  </div>
+  <div style="text-align:right;font-size:.78rem;color:var(--muted);">Reserva Online</div>
+</header>
+
+<div class="hero">
+  <div class="emoji">🥩</div>
+  <h2>Reserve sua carne de domingo</h2>
+  <p>Escolha a data, informe seus dados e garanta sua reserva com facilidade.</p>
+</div>
+
+<main>
+  <div class="progress">
+    <div class="progress-dot active" id="dot-1"></div>
+    <div class="progress-dot" id="dot-2"></div>
+    <div class="progress-dot" id="dot-3"></div>
+  </div>
+
+  <!-- STEP 1: ESCOLHER DATA -->
+  <div class="step active" id="step-date">
+    <div class="card">
+      <h3>📅 Escolha a data</h3>
+      <div id="dates-loading" style="color:var(--muted);font-size:.9rem;text-align:center;padding:1.5rem 0;">Carregando datas disponíveis...</div>
+      <div id="dates-grid" class="date-grid" style="display:none;"></div>
+      <div id="dates-empty" class="empty-state" style="display:none;">
+        <div class="icon">📅</div>
+        <p>Nenhuma data disponível no momento.<br/>Tente novamente em breve.</p>
+      </div>
+    </div>
+    <button class="btn btn-primary" id="btn-next-date" onclick="goToStep2()" disabled style="opacity:.5;">Continuar →</button>
+  </div>
+
+  <!-- STEP 2: PRODUTOS -->
+  <div class="step" id="step-products">
+    <div class="card">
+      <h3>📦 O que você quer reservar?</h3>
+      <div id="stock-pills" class="stock-preview"></div>
+      <div id="products-form"></div>
+      <div class="total-bar">
+        <span style="color:var(--muted);font-size:.9rem;">Estimativa total</span>
+        <strong id="pub-total">R$ 0,00</strong>
+      </div>
+      <p style="font-size:.75rem;color:var(--muted);margin-top:.5rem;">* Preço estimado. Pagamento na retirada.</p>
+    </div>
+    <button class="btn btn-primary" id="btn-next-products" onclick="goToStep3()" disabled style="opacity:.5;">Continuar →</button>
+    <button class="btn btn-secondary" onclick="goToStep1()">← Voltar</button>
+  </div>
+
+  <!-- STEP 3: DADOS PESSOAIS -->
+  <div class="step" id="step-personal">
+    <div class="card">
+      <h3>👤 Seus dados</h3>
+      <label for="pub-name">Nome completo</label>
+      <input type="text" id="pub-name" placeholder="Seu nome" oninput="validateStep3()"/>
+      <label for="pub-phone">WhatsApp (com DDD)</label>
+      <input type="tel" id="pub-phone" placeholder="41 9 9999-9999" oninput="validateStep3()" onblur="formatPhone(this)"/>
+      <div class="error-msg" id="form-error"></div>
+      <div style="background:rgba(245,166,35,.08);border:1px solid var(--border);border-radius:8px;padding:.8rem 1rem;font-size:.82rem;color:var(--muted);margin-top:-.3rem;">
+        📲 Você receberá a confirmação da reserva pelo WhatsApp após finalizar.
+      </div>
+    </div>
+
+    <!-- Resumo -->
+    <div class="card" id="order-preview">
+      <h3>📋 Resumo da reserva</h3>
+      <div id="preview-content"></div>
+    </div>
+
+    <button class="btn btn-primary" id="btn-confirm" onclick="submitReserva()" disabled style="opacity:.5;">✅ Confirmar Reserva</button>
+    <button class="btn btn-secondary" onclick="goToStep2()">← Voltar</button>
+  </div>
+
+  <!-- STEP 4: SUCESSO -->
+  <div class="step" id="step-success">
+    <div class="card">
+      <div class="success-box">
+        <div class="icon">✅</div>
+        <h2>Reserva confirmada!</h2>
+        <p>Sua reserva foi registrada com sucesso.</p>
+        <div class="order-summary" id="success-summary"></div>
+        <div class="whatsapp-note">
+          📲 Uma confirmação foi enviada para o seu WhatsApp.
+        </div>
+        <p style="margin-top:1.2rem;font-size:.85rem;">Até domingo! Traga sua sacola 🙌</p>
+      </div>
+    </div>
+    <button class="btn btn-secondary" onclick="resetForm()" style="margin-top:0;">Fazer outra reserva</button>
+  </div>
+</main>
+
+<script>
+const API = '/api/public';
+let selectedDate = null;
+let selectedStock = {};
+let selectedItems = [];
+
+// ── STEP 1: DATAS ──────────────────────────────────────────────────────────
+async function loadDates() {
+  try {
+    const dates = await fetch(`${API}/available-dates`).then(r=>r.json());
+    document.getElementById('dates-loading').style.display = 'none';
+    if (!dates.length) {
+      document.getElementById('dates-empty').style.display = 'block';
+      return;
+    }
+    const grid = document.getElementById('dates-grid');
+    grid.style.display = 'grid';
+    grid.innerHTML = dates.map(d => {
+      const dt = new Date(d.sale_date + 'T12:00:00');
+      const day = dt.toLocaleDateString('pt-BR', { day: '2-digit' });
+      const weekday = dt.toLocaleDateString('pt-BR', { weekday: 'long' });
+      const month = dt.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
+      return `<div class="date-card" onclick="selectDate('${d.sale_date}', this)">
+        <div class="day">${day}</div>
+        <div class="weekday">${weekday}</div>
+        <div class="month">${month}</div>
+      </div>`;
+    }).join('');
+  } catch(e) {
+    document.getElementById('dates-loading').textContent = 'Erro ao carregar datas. Tente novamente.';
+  }
+}
+
+function selectDate(date, el) {
+  document.querySelectorAll('.date-card').forEach(c=>c.classList.remove('selected'));
+  el.classList.add('selected');
+  selectedDate = date;
+  const btn = document.getElementById('btn-next-date');
+  btn.disabled = false; btn.style.opacity = '1';
+}
+
+function goToStep1() { showStep('step-date', 1); }
+
+async function goToStep2() {
+  if (!selectedDate) return;
+  // Carrega estoque da data selecionada
+  selectedStock = await fetch(`${API}/stock/${selectedDate}`).then(r=>r.json());
+  buildProductsForm();
+  showStep('step-products', 2);
+}
+
+// ── STEP 2: PRODUTOS ───────────────────────────────────────────────────────
+const PRICES = { meat: 45, ribs: 38, chicken: 32 }; // preços padrão por unidade
+
+function buildProductsForm() {
+  const s = selectedStock;
+  const pills = document.getElementById('stock-pills');
+  const form  = document.getElementById('products-form');
+
+  const meatAvail    = parseFloat(s.meat    || 0);
+  const ribsAvail    = parseFloat(s.ribs    || 0);
+  const chickenAvail = parseFloat(s.chicken || 0);
+
+  pills.innerHTML = [
+    meatAvail    > 0 ? `<span class="stock-tag ${meatAvail<=2?'low':'ok'}">🥩 Carne: ${meatAvail} kg disp.</span>` : '',
+    ribsAvail    > 0 ? `<span class="stock-tag ${ribsAvail<=2?'low':'ok'}">🥩 Costela: ${ribsAvail} kg disp.</span>` : '',
+    chickenAvail > 0 ? `<span class="stock-tag ${chickenAvail<=5?'low':'ok'}">🍗 Frango: ${chickenAvail} un disp.</span>` : '',
+  ].join('');
+
+  const rows = [];
+  if (meatAvail > 0) rows.push({ type:'meat',    label:'🥩 Carne', unit:'kg',  avail:meatAvail,    step:0.5, price:PRICES.meat });
+  if (ribsAvail > 0) rows.push({ type:'ribs',     label:'🥩 Costela', unit:'kg', avail:ribsAvail,  step:0.5, price:PRICES.ribs });
+  if (chickenAvail > 0) rows.push({ type:'chicken', label:'🍗 Frango Assado', unit:'un', avail:chickenAvail, step:1, price:PRICES.chicken });
+
+  if (!rows.length) {
+    form.innerHTML = `<div class="empty-state"><div class="icon">😔</div><p>Estoque esgotado para esta data.</p></div>`;
+    return;
+  }
+
+  form.innerHTML = rows.map(r => `
+    <div class="qty-row">
+      <div class="label">${r.label}<small>R$ ${r.price.toFixed(2).replace('.',',')}/${r.unit}</small></div>
+      <div class="qty-ctrl">
+        <button class="qty-btn" onclick="changeQty('${r.type}', -${r.step}, ${r.avail}, ${r.step})">−</button>
+        <span class="qty-val" id="qty-${r.type}">0</span>
+        <button class="qty-btn" onclick="changeQty('${r.type}', ${r.step}, ${r.avail}, ${r.step})">+</button>
+      </div>
+    </div>
+    <div class="avail-hint">Disponível: ${r.avail} ${r.unit}</div>
+  `).join('');
+
+  // Inicializa qtys
+  window._qtys = {};
+  window._priceMap = {};
+  window._stepMap = {};
+  rows.forEach(r => {
+    window._qtys[r.type]     = 0;
+    window._priceMap[r.type] = r.price;
+    window._stepMap[r.type]  = r.step;
+  });
+  calcPubTotal();
+}
+
+function changeQty(type, delta, max, step) {
+  const current = window._qtys[type] || 0;
+  let next = Math.round((current + delta) * 10) / 10;
+  next = Math.max(0, Math.min(max, next));
+  window._qtys[type] = next;
+  document.getElementById(`qty-${type}`).textContent = next % 1 === 0 ? next : next.toFixed(1);
+  calcPubTotal();
+}
+
+function calcPubTotal() {
+  let total = 0;
+  const items = [];
+  Object.keys(window._qtys || {}).forEach(type => {
+    const qty = window._qtys[type] || 0;
+    if (qty > 0) {
+      const price    = window._priceMap[type] || 0;
+      const subtotal = Math.round(qty * price * 100) / 100;
+      total += subtotal;
+      items.push({ type, qty, price, subtotal });
+    }
+  });
+  selectedItems = items;
+  document.getElementById('pub-total').textContent = 'R$ ' + total.toFixed(2).replace('.', ',');
+  const btn = document.getElementById('btn-next-products');
+  btn.disabled = items.length === 0;
+  btn.style.opacity = items.length === 0 ? '.5' : '1';
+}
+
+function goToStep3() {
+  if (!selectedItems.length) return;
+  buildPreview();
+  showStep('step-personal', 3);
+  validateStep3();
+}
+
+// ── STEP 3: DADOS PESSOAIS ─────────────────────────────────────────────────
+function buildPreview() {
+  const dt     = new Date(selectedDate + 'T12:00:00');
+  const dateBR = dt.toLocaleDateString('pt-BR', { weekday:'long', day:'2-digit', month:'long' });
+  const labels = { meat:'🥩 Carne', ribs:'🥩 Costela', chicken:'🍗 Frango' };
+  const units  = { meat:'kg', ribs:'kg', chicken:'un' };
+  const total  = selectedItems.reduce((s,i) => s + i.subtotal, 0);
+
+  document.getElementById('preview-content').innerHTML = `
+    <div>📅 <strong>${dateBR}</strong></div>
+    ${selectedItems.map(i=>`<div>${labels[i.type]} × ${i.qty} ${units[i.type]} = <strong style="color:var(--ember)">R$ ${i.subtotal.toFixed(2).replace('.',',')}</strong></div>`).join('')}
+    <div style="margin-top:.5rem;padding-top:.5rem;">💰 Estimativa: <strong style="color:var(--ember)">R$ ${total.toFixed(2).replace('.',',')}</strong></div>
+  `;
+}
+
+function formatPhone(input) {
+  let v = input.value.replace(/\D/g,'');
+  if (v.length >= 11) v = v.replace(/(\d{2})(\d{1})(\d{4})(\d{4})/,'($1) $2 $3-$4');
+  else if (v.length >= 10) v = v.replace(/(\d{2})(\d{4})(\d{4})/,'($1) $2-$3');
+  input.value = v;
+}
+
+function validateStep3() {
+  const name  = document.getElementById('pub-name').value.trim();
+  const phone = document.getElementById('pub-phone').value.replace(/\D/g,'');
+  const ok    = name.length >= 2 && phone.length >= 10;
+  const btn   = document.getElementById('btn-confirm');
+  btn.disabled = !ok; btn.style.opacity = ok ? '1' : '.5';
+}
+
+async function submitReserva() {
+  const name  = document.getElementById('pub-name').value.trim();
+  const phone = document.getElementById('pub-phone').value.replace(/\D/g,'');
+  const errEl = document.getElementById('form-error');
+  errEl.classList.remove('visible');
+
+  const btn = document.getElementById('btn-confirm');
+  btn.disabled = true; btn.textContent = '⏳ Enviando...';
+
+  try {
+    const res = await fetch('/api/public/reserva', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, phone, items: selectedItems, order_date: selectedDate })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Erro ao registrar reserva.');
+
+    // Sucesso
+    buildSuccessScreen(name, phone);
+    showStep('step-success', 4);
+  } catch(e) {
+    errEl.textContent = e.message;
+    errEl.classList.add('visible');
+    btn.disabled = false; btn.textContent = '✅ Confirmar Reserva';
+  }
+}
+
+function buildSuccessScreen(name, phone) {
+  const dt     = new Date(selectedDate + 'T12:00:00');
+  const dateBR = dt.toLocaleDateString('pt-BR', { weekday:'long', day:'2-digit', month:'long', year:'numeric' });
+  const labels = { meat:'🥩 Carne', ribs:'🥩 Costela', chicken:'🍗 Frango' };
+  const units  = { meat:'kg', ribs:'kg', chicken:'un' };
+  document.getElementById('success-summary').innerHTML = `
+    <div>👤 <strong>${name}</strong></div>
+    <div>📅 ${dateBR}</div>
+    ${selectedItems.map(i=>`<div>${labels[i.type]} × ${i.qty} ${units[i.type]}</div>`).join('')}
+    <div>📱 ${phone}</div>
+  `;
+}
+
+function resetForm() {
+  selectedDate = null; selectedStock = {}; selectedItems = [];
+  window._qtys = {}; window._priceMap = {}; window._stepMap = {};
+  document.getElementById('pub-name').value = '';
+  document.getElementById('pub-phone').value = '';
+  document.querySelectorAll('.date-card').forEach(c=>c.classList.remove('selected'));
+  document.getElementById('btn-next-date').disabled = true;
+  document.getElementById('btn-next-date').style.opacity = '.5';
+  loadDates();
+  showStep('step-date', 1);
+}
+
+// ── NAVIGATION ─────────────────────────────────────────────────────────────
+function showStep(stepId, dotNum) {
+  document.querySelectorAll('.step').forEach(s=>s.classList.remove('active'));
+  document.getElementById(stepId).classList.add('active');
+  document.querySelectorAll('.progress-dot').forEach((d,i) => {
+    d.classList.remove('active','done');
+    if (i + 1 < dotNum) d.classList.add('done');
+    else if (i + 1 === dotNum) d.classList.add('active');
+  });
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+// ── INIT ───────────────────────────────────────────────────────────────────
+loadDates();
+</script>
+</body>
+</html>

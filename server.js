@@ -331,6 +331,26 @@ async function sendWhatsApp(message) {
   }
 }
 
+// Envia WhatsApp para qualquer número (confirmação ao cliente)
+async function sendWhatsAppToNumber(phone, message) {
+  const apiKey = process.env.CALLMEBOT_APIKEY;
+  if (!apiKey) return false;
+  // CallMeBot exige que o destinatário tenha ativado o serviço
+  // Formato: DDI + DDD + número (ex: 5541999998888)
+  const cleanPhone = phone.replace(/\D/g, '');
+  const fullPhone  = cleanPhone.startsWith('55') ? cleanPhone : '55' + cleanPhone;
+  const url = `https://api.callmebot.com/whatsapp.php?phone=${fullPhone}&text=${encodeURIComponent(message)}&apikey=${apiKey}`;
+  try {
+    const { default: fetch } = await import('node-fetch');
+    const res = await fetch(url);
+    console.log(`[WhatsApp Cliente] ${fullPhone} — Status: ${res.status}`);
+    return res.ok;
+  } catch (e) {
+    console.error('[WhatsApp Cliente] Erro:', e.message);
+    return false;
+  }
+}
+
 app.post('/api/whatsapp/send-summary', async (req, res) => {
   const date = req.body?.date || new Date().toISOString().split('T')[0];
   const msg  = await buildDailySummary(date);
@@ -380,6 +400,154 @@ app.post('/api/stock', async (req, res) => {
     const r = rows[0];
     res.json({ ...r, sale_date: r.sale_date?.toISOString().split('T')[0] });
   } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// ─── ROUTES: RESERVA PÚBLICA (sem autenticação) ───────────────────────────────
+
+// Rate limit específico para reservas públicas
+const reservaLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000, // 1 hora
+  max: 20,
+  message: { error: 'Muitas tentativas. Tente novamente em 1 hora.' }
+});
+
+// Datas disponíveis para reserva (estoque > 0 a partir de hoje)
+app.get('/api/public/available-dates', async (req, res) => {
+  try {
+    const today = new Date().toISOString().split('T')[0];
+    const { rows } = await pool.query(`
+      SELECT sale_date, meat, ribs, chicken FROM stock
+      WHERE sale_date >= $1 AND (meat > 0 OR ribs > 0 OR chicken > 0)
+      ORDER BY sale_date ASC`, [today]);
+    res.json(rows.map(r => ({
+      ...r,
+      sale_date: r.sale_date?.toISOString().split('T')[0]
+    })));
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// Estoque público de uma data
+app.get('/api/public/stock/:date', async (req, res) => {
+  try {
+    const { rows } = await pool.query('SELECT * FROM stock WHERE sale_date = $1', [req.params.date]);
+    if (!rows.length) return res.json({ sale_date: req.params.date, meat: 0, ribs: 0, chicken: 0 });
+    const r = rows[0];
+    res.json({ ...r, sale_date: r.sale_date?.toISOString().split('T')[0] });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// Registrar reserva pública (cliente final)
+app.post('/api/public/reserva', reservaLimiter, async (req, res) => {
+  const { name, phone, items, order_date } = req.body;
+  if (!name || !phone || !items?.length || !order_date)
+    return res.status(400).json({ error: 'Nome, telefone, data e itens são obrigatórios.' });
+
+  // Valida telefone básico
+  const cleanPhone = phone.replace(/\D/g, '');
+  if (cleanPhone.length < 10)
+    return res.status(400).json({ error: 'Telefone inválido. Use DDD + número.' });
+
+  // Verifica se há estoque na data
+  const { rows: stockRows } = await pool.query('SELECT * FROM stock WHERE sale_date = $1', [order_date]);
+  if (!stockRows.length) return res.status(400).json({ error: 'Data indisponível para reservas.' });
+  const stock = stockRows[0];
+
+  // Verifica disponibilidade por item
+  for (const item of items) {
+    const qty = parseFloat(item.qty) || 0;
+    if (qty <= 0) continue;
+    const avail = parseFloat(stock[item.type] || 0);
+    if (avail < qty) {
+      const labels = { meat: 'Carne', ribs: 'Costela', chicken: 'Frango' };
+      return res.status(400).json({ error: `Quantidade indisponível para ${labels[item.type] || item.type}. Disponível: ${avail}` });
+    }
+  }
+
+  const total = items.reduce((s, i) => s + (parseFloat(i.subtotal) || 0), 0);
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const { rows } = await client.query(
+      `INSERT INTO orders (name, phone, total, payment, order_date, status)
+       VALUES ($1,$2,$3,'a_combinar',$4,'pending') RETURNING id`,
+      [name.trim(), cleanPhone, total, order_date]
+    );
+    const orderId = rows[0].id;
+    for (const item of items) {
+      if (!parseFloat(item.qty)) continue;
+      await client.query(
+        `INSERT INTO order_items (order_id, type, qty, price, subtotal) VALUES ($1,$2,$3,$4,$5)`,
+        [orderId, item.type, item.qty, item.price || 0, item.subtotal || 0]
+      );
+    }
+    // Abate do estoque
+    const meatQty    = items.filter(i=>i.type==='meat').reduce((s,i)=>s+parseFloat(i.qty||0),0);
+    const ribsQty    = items.filter(i=>i.type==='ribs').reduce((s,i)=>s+parseFloat(i.qty||0),0);
+    const chickenQty = items.filter(i=>i.type==='chicken').reduce((s,i)=>s+parseFloat(i.qty||0),0);
+    if (meatQty || ribsQty || chickenQty) {
+      await client.query(`
+        UPDATE stock SET
+          meat    = GREATEST(0, meat - $1),
+          ribs    = GREATEST(0, ribs - $2),
+          chicken = GREATEST(0, chicken - $3),
+          updated_at = NOW()
+        WHERE sale_date = $4`,
+        [meatQty, ribsQty, chickenQty, order_date]
+      );
+    }
+    await client.query('COMMIT');
+
+    // Notificações WhatsApp
+    const dateBR = new Date(order_date + 'T12:00:00').toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: '2-digit' });
+    const itemLines = items.filter(i=>parseFloat(i.qty)>0).map(i => {
+      const labels = { meat:'🥩 Carne', ribs:'🥩 Costela', chicken:'🍗 Frango' };
+      const unit   = i.type==='chicken' ? ' un' : ' kg';
+      return `  • ${labels[i.type]||i.type}: ${parseFloat(i.qty)}${unit}`;
+    }).join('\n');
+
+    // 1. WhatsApp para o DONO (notificação de novo pedido)
+    const msgDono = [
+      `🥩 *Biazzi — Nova Reserva!*`,
+      ``,
+      `👤 *${name.trim()}*`,
+      `📱 ${cleanPhone}`,
+      `📅 ${dateBR}`,
+      ``,
+      `📦 *Itens:*`,
+      itemLines,
+      ``,
+      `_Pedido recebido via link de reserva_`
+    ].join('\n');
+    sendWhatsApp(msgDono).catch(() => {});
+
+    // 2. WhatsApp para o CLIENTE (confirmação)
+    const msgCliente = [
+      `✅ *Reserva confirmada!*`,
+      ``,
+      `Olá, *${name.trim()}*! Sua reserva no`,
+      `🥩 *Biazzi Empório da Carne* foi registrada.`,
+      ``,
+      `📅 *Data:* ${dateBR}`,
+      `📦 *Itens reservados:*`,
+      itemLines,
+      ``,
+      `⚠️ O pagamento é feito na retirada.`,
+      `Em caso de dúvidas, entre em contato conosco.`,
+      ``,
+      `_Até domingo! 🙌_`
+    ].join('\n');
+    sendWhatsAppToNumber(cleanPhone, msgCliente).catch(() => {});
+
+    res.status(201).json({ success: true, orderId, message: 'Reserva confirmada! Você receberá uma confirmação pelo WhatsApp.' });
+  } catch (e) {
+    await client.query('ROLLBACK');
+    res.status(500).json({ error: e.message });
+  } finally { client.release(); }
+});
+
+// Serve a página pública de reserva
+app.get('/reserva', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'reserva.html'));
 });
 
 // ─── AUTH ─────────────────────────────────────────────────────────────────────
