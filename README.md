@@ -1,142 +1,142 @@
-# 🥩 Biazzi Empório da Carne — Sistema de Pedidos
+# 🥩 Biazzi Empório da Carne — Sistema de Gestão
 
-Sistema web para gestão de reservas, pagamentos e estatísticas de vendas.
+Sistema web completo para gestão de reservas, estoque, pagamentos, estatísticas e reservas online dos clientes.
 
 **Stack:** Node.js 20 · Express · PostgreSQL  
-**Hospedagem:** Render.com (gratuito)  
-**URL:** https://biazzi-emporio.onrender.com
+**Hospedagem:** Render.com  
+**URL Admin:** https://biazzi-emporio.onrender.com  
+**URL Reservas (pública):** https://biazzi-emporio.onrender.com/reserva
 
 ---
 
 ## 📱 Funcionalidades
 
-- **Nova Reserva** — cadastro de clientes com itens, quantidades, preços e forma de pagamento
+### Painel Administrativo (acesso com senha)
+- **Nova Reserva** — cadastro pelo atendente com nome, telefone, itens, quantidades, preços e forma de pagamento
 - **Reservas** — pedidos pendentes aguardando retirada e pagamento
-- **Histórico** — pedidos pagos e cancelados, agrupados por data (mais recente primeiro)
-- **Estatísticas** — receita, kg de carne, unidades de frango por período ou dia específico
-- **WhatsApp** — resumo automático todo domingo às 20h via CallMeBot
+- **Histórico** — pedidos pagos e cancelados, agrupados por data com receita diária
+- **Estatísticas** — receita, kg de carne, unidades de frango por período ou dia específico com gráfico mensal
+- **Estoque** — controle por data de venda, abate automático a cada reserva, devolução em cancelamentos
+- **WhatsApp** — resumo automático todo domingo às 20h via CallMeBot + envio manual
+
+### Página Pública de Reservas `/reserva`
+- Acesso sem login — link direto para clientes finais
+- Exibe datas disponíveis com estoque cadastrado
+- Fluxo em 3 passos: data → produtos → dados pessoais
+- Abate automático do estoque ao confirmar
+- Notificação WhatsApp para o dono a cada nova reserva
+- Preview social (og-image) para Instagram e WhatsApp
 
 ---
 
-## 🚀 Deploy no Render (passo a passo)
+## 🔐 Acesso e Segurança
+
+- Login por senha única configurada via variável de ambiente
+- Token de sessão salvo no navegador
+- Todas as rotas administrativas protegidas por autenticação
+- Página `/reserva` é pública — sem acesso a dados internos
+- Rate limit nas rotas de login e reservas públicas
+
+---
+
+## 🚀 Deploy no Render
 
 ### 1. Subir o código no GitHub
 
 ```bash
 cd churrascoapp
-git init
-git add .
-git commit -m "Biazzi Empório da Carne v1.0"
+git init && git add .
+git commit -m "Biazzi Empório da Carne v2.0"
 git branch -M main
 git remote add origin https://github.com/SEU_USUARIO/biazzi-emporio.git
 git push -u origin main
 ```
 
-### 2. Criar o banco PostgreSQL
+### 2. Criar banco PostgreSQL
+Render.com → New → PostgreSQL → Name: `biazzi-db` → Free → Create
 
-1. Acesse [render.com](https://render.com) → **New → PostgreSQL**
-2. **Name:** `biazzi-db` · **Plan:** Free
-3. Clique em **Create Database**
-
-### 3. Criar o Web Service
-
-1. **New → Web Service** → conecte o repositório GitHub
-2. O Render detecta o `render.yaml` automaticamente
-3. Clique em **Create Web Service**
+### 3. Criar Web Service
+New → Web Service → conecte o repositório → o `render.yaml` é detectado automaticamente
 
 ### 4. Variáveis de ambiente
 
-No painel do serviço → aba **Environment**, adicione:
+| Key | Value | Obrigatório |
+|-----|-------|-------------|
+| `DATABASE_URL` | connection string do banco | ✅ |
+| `TZ` | `America/Sao_Paulo` | ✅ |
+| `APP_PASSWORD` | senha do painel admin | ✅ |
+| `WHATSAPP_PHONE` | número com DDI ex: `5541999998888` | ⚠️ opcional |
+| `CALLMEBOT_APIKEY` | chave recebida pelo CallMeBot | ⚠️ opcional |
 
-| Key | Value |
-|-----|-------|
-| `DATABASE_URL` | connection string do banco criado no passo 2 |
-| `TZ` | `America/Sao_Paulo` |
-| `WHATSAPP_PHONE` | número com DDI, ex: `5541999998888` |
-| `CALLMEBOT_APIKEY` | chave recebida pelo CallMeBot |
+> ⚠️ Plano gratuito: app dorme após 15min sem uso (~30s para acordar). Não impacta o uso aos domingos.
 
-### 5. Pronto
+---
 
-Após o deploy, o app estará em:
-```
-https://biazzi-emporio.onrender.com
-```
+## 📦 Gestão de Estoque
 
-> ⚠️ **Plano gratuito:** o app "dorme" após 15 min sem uso e leva ~30s para acordar na primeira abertura. Como o uso é aos domingos, isso não impacta a operação.
+Controlado por data de venda. O dono define as quantidades antes de cada domingo. O sistema abate automaticamente a cada reserva e devolve em cancelamentos.
+
+Itens: 🥩 Carne (kg) · 🥩 Costela (kg) · 🍗 Frango Assado (unidades)
+
+Para ativar reservas de uma data: cadastrar estoque via botão **⚙ Definir estoque** no cabeçalho do painel.
 
 ---
 
 ## 📲 Ativar WhatsApp (CallMeBot)
 
-1. Adicione o contato **+34 644 44 79 30** na agenda
-2. Envie a mensagem: `I allow callmebot to send me messages`
-3. Você receberá sua `apikey` em alguns segundos
-4. Cole a chave na variável `CALLMEBOT_APIKEY` no Render
+1. Salve o contato **+34 644 95 4275**
+2. Envie: `I allow callmebot to send me messages`
+3. Receba sua `apikey` e configure no Render
 
-O resumo é enviado automaticamente **todo domingo às 20h**.  
-Envio manual disponível na aba **Estatísticas → 📲 Resumo por WhatsApp**.
+Resumo automático todo domingo às 20h. Envio manual na aba Estatísticas.
 
 ---
 
-## 💻 Rodar localmente
+## 🔗 Página Pública de Reservas
 
-> Requer Node.js v20 e PostgreSQL instalados.
-
-```bash
-# Instalar dependências
-npm install
-
-# Configurar variáveis (copie o modelo)
-cp .env.example .env
-# Edite o .env com sua DATABASE_URL local
-
-# Iniciar
-npm start
-
-# Acesse
-http://localhost:3000
+```
+https://biazzi-emporio.onrender.com/reserva
 ```
 
----
-
-## 🔄 Atualizar após melhorias
-
-```bash
-git add .
-git commit -m "descrição da melhoria"
-git push
-```
-
-O Render detecta o push e faz o redeploy automaticamente.
+Compartilhar na bio do Instagram, stories, grupos de WhatsApp e status.
 
 ---
 
-## 📁 Estrutura do projeto
+## 📁 Estrutura
 
 ```
 churrascoapp/
-├── server.js           ← API REST + agendador WhatsApp
+├── server.js           ← API REST + agendador + rotas públicas
 ├── package.json
-├── render.yaml         ← Configuração do Render (web + banco)
+├── render.yaml
 ├── Procfile
-├── .gitignore
-├── .env.example        ← Modelo de variáveis de ambiente
+├── .env.example
 ├── README.md
 └── public/
-    └── index.html      ← Frontend responsivo (mobile/tablet/desktop)
+    ├── index.html      ← Painel admin responsivo
+    ├── reserva.html    ← Página pública de reservas
+    ├── logo.jpg        ← Logo Biazzi
+    └── og-image.jpg    ← Preview para redes sociais
 ```
 
 ---
 
-## 🔌 Endpoints da API
+## 🔌 Endpoints
 
+### Protegidos (x-auth-token)
 | Método | Rota | Descrição |
 |--------|------|-----------|
-| GET | `/api/orders` | Listar pedidos |
-| POST | `/api/orders` | Criar pedido |
-| PUT | `/api/orders/:id` | Editar / mudar status |
-| DELETE | `/api/orders/:id` | Remover pedido |
+| GET/POST | `/api/orders` | Listar / criar pedidos |
+| PUT/DELETE | `/api/orders/:id` | Editar / remover |
 | GET | `/api/history` | Histórico |
 | GET | `/api/stats` | Estatísticas |
-| POST | `/api/whatsapp/send-summary` | Enviar resumo agora |
-| GET | `/api/whatsapp/preview` | Prévia do resumo |
+| GET/POST | `/api/stock/:date` | Estoque |
+| POST | `/api/whatsapp/send-summary` | Enviar resumo |
+
+### Públicos
+| Método | Rota | Descrição |
+|--------|------|-----------|
+| GET | `/api/public/available-dates` | Datas disponíveis |
+| GET | `/api/public/stock/:date` | Estoque público |
+| POST | `/api/public/reserva` | Registrar reserva |
+| GET | `/reserva` | Página de reservas |
